@@ -1,0 +1,14 @@
+# Archivos generados por Tailwind
+dist/
+src/output.css
+
+# Node modules
+node_modules/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración de editores
+.vscode/
+.idea/

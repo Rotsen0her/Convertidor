@@ -1,0 +1,478 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Zafiro BI{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-gem text-blue-600 text-xl mr-2"></i>
+                        <h1 class="text-xl font-bold text-gray-900">Zafiro BI</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-700">
+                        <i class="fas fa-user mr-1"></i>
+                        {{ session.usuario }} 
+                        {% if session.rol == 'admin' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                                Admin
+                            </span>
+                        {% endif %}
+                    </span>
+                    {% if session.rol == 'admin' %}
+                        <a href="{{ url_for('usuarios') }}" 
+                           class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-users mr-1"></i>
+                            Usuarios
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" 
+                       class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-sign-out-alt mr-1"></i>
+                        Cerrar Sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <div class="lg:flex lg:space-x-6">
+                <!-- Sidebar -->
+                <div class="lg:w-1/3 mb-6 lg:mb-0">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+                            <i class="fas fa-cogs mr-2 text-blue-600"></i>
+                            Opciones de Transformación
+                        </h2>
+                        <div class="space-y-2">
+                            <button onclick="selectOption('clientes')" 
+                                    class="option-btn w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition duration-150 ease-in-out">
+                                <div class="font-medium text-gray-900">Base de datos de clientes</div>
+                                <div class="text-sm text-gray-500">Procesar maestra de clientes ECOM</div>
+                            </button>
+                            
+                            <button onclick="selectOption('ventas')" 
+                                    class="option-btn w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition duration-150 ease-in-out">
+                                <div class="font-medium text-gray-900">Informe Venta x Material x Cliente</div>
+                                <div class="text-sm text-gray-500">Procesar informe de ventas ECOM</div>
+                            </button>
+                            
+                            <button onclick="selectOption('union')" 
+                                    class="option-btn w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition duration-150 ease-in-out">
+                                <div class="font-medium text-gray-900">Unión ventas mes y anuales</div>
+                                <div class="text-sm text-gray-500">Combinar ventas mensuales y acumuladas</div>
+                            </button>
+                            
+                            <button onclick="selectOption('exhibidores')" 
+                                    class="option-btn w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition duration-150 ease-in-out">
+                                <div class="font-medium text-gray-900">Base de datos exhibidores</div>
+                                <div class="text-sm text-gray-500">Procesar maestra de exhibidores</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Panel -->
+                <div class="lg:w-2/3">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div id="welcome-panel">
+                            <div class="text-center py-12">
+                                <i class="fas fa-arrow-left text-4xl text-gray-300 mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">Selecciona una opción</h3>
+                                <p class="text-gray-500">Elige una opción del panel izquierdo para comenzar a transformar tus archivos.</p>
+                            </div>
+                        </div>
+
+                        <!-- File Upload Panel -->
+                        <div id="upload-panel" class="hidden">
+                            <div class="mb-6">
+                                <h3 id="panel-title" class="text-lg font-semibold text-gray-900 mb-2"></h3>
+                                <p id="panel-description" class="text-gray-600"></p>
+                            </div>
+
+                            <form id="upload-form" class="space-y-6" enctype="multipart/form-data">
+                                <!-- Single file upload -->
+                                <div id="single-upload" class="hidden">
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition duration-150 ease-in-out" 
+                                         ondrop="dropHandler(event)" ondragover="dragOverHandler(event)" ondragleave="dragLeaveHandler(event)">
+                                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-lg font-medium text-gray-900 mb-2">Arrastra tu archivo aquí</p>
+                                        <p class="text-gray-500 mb-4">o</p>
+                                        <input type="file" id="file-input" name="file" accept=".xlsx,.xls,.csv" class="hidden">
+                                        <button type="button" onclick="document.getElementById('file-input').click()" 
+                                                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition duration-150 ease-in-out">
+                                            Seleccionar archivo
+                                        </button>
+                                        <p class="text-xs text-gray-500 mt-2">Formatos soportados: .xlsx, .xls, .csv</p>
+                                    </div>
+                                    <div id="file-info" class="hidden mt-4 p-4 bg-blue-50 rounded-lg">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-file text-blue-600 mr-2"></i>
+                                            <span id="file-name" class="font-medium text-blue-900"></span>
+                                            <button type="button" onclick="clearFile()" class="ml-auto text-red-600 hover:text-red-800">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Double file upload for union -->
+                                <div id="double-upload" class="hidden space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Archivo Acumulado</label>
+                                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                            <i class="fas fa-file-alt text-2xl text-gray-400 mb-2"></i>
+                                            <input type="file" id="file-acum" name="file_acum" accept=".xlsx,.xls,.csv" class="hidden">
+                                            <button type="button" onclick="document.getElementById('file-acum').click()" 
+                                                    class="text-blue-600 hover:text-blue-800">Seleccionar archivo acumulado</button>
+                                        </div>
+                                        <div id="file-acum-info" class="hidden mt-2 p-3 bg-green-50 rounded">
+                                            <span id="file-acum-name" class="text-green-800"></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Archivo del Mes</label>
+                                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                            <i class="fas fa-file-alt text-2xl text-gray-400 mb-2"></i>
+                                            <input type="file" id="file-mes" name="file_mes" accept=".xlsx,.xls,.csv" class="hidden">
+                                            <button type="button" onclick="document.getElementById('file-mes').click()" 
+                                                    class="text-blue-600 hover:text-blue-800">Seleccionar archivo del mes</button>
+                                        </div>
+                                        <div id="file-mes-info" class="hidden mt-2 p-3 bg-green-50 rounded">
+                                            <span id="file-mes-name" class="text-green-800"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Month input for ventas -->
+                                <div id="month-input" class="hidden">
+                                    <label for="mes" class="block text-sm font-medium text-gray-700 mb-2">Mes (1-12)</label>
+                                    <input type="number" id="mes" name="mes" min="1" max="12" 
+                                           class="block w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+
+                                <!-- Submit button -->
+                                <div class="flex justify-end">
+                                    <button type="submit" id="submit-btn" disabled
+                                            class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-150 ease-in-out">
+                                        <i class="fas fa-play mr-2"></i>
+                                        Procesar
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- Progress indicator -->
+                            <div id="progress-panel" class="hidden mt-6">
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                                        <span class="text-blue-800">Procesando archivo...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Result panel -->
+                            <div id="result-panel" class="hidden mt-6">
+                                <div id="success-result" class="hidden bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-check-circle text-green-600 mr-3"></i>
+                                        <div>
+                                            <p class="font-medium text-green-800">¡Proceso completado exitosamente!</p>
+                                            <p class="text-green-700 text-sm mt-1">Tu archivo ha sido transformado y está listo para descargar.</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <a id="download-link" href="#" 
+                                           class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-150 ease-in-out">
+                                            <i class="fas fa-download mr-2"></i>
+                                            Descargar archivo transformado
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div id="error-result" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-exclamation-circle text-red-600 mr-3"></i>
+                                        <div>
+                                            <p class="font-medium text-red-800">Error al procesar el archivo</p>
+                                            <p id="error-message" class="text-red-700 text-sm mt-1"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Files -->
+                    <div class="bg-white rounded-lg shadow p-6 mt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <i class="fas fa-history mr-2 text-gray-600"></i>
+                            Archivos Recientes
+                        </h3>
+                        <div id="recent-files">
+                            <p class="text-gray-500 text-sm">No hay archivos procesados recientemente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentOption = '';
+    
+    const options = {
+        'clientes': {
+            title: 'Base de datos de clientes',
+            description: 'Procesa el archivo de maestra de clientes de ECOM. Debe ser un archivo en formato .xlsx',
+            uploadType: 'single',
+            endpoint: '/transform/clientes'
+        },
+        'ventas': {
+            title: 'Informe Venta x Material x Cliente',
+            description: 'Procesa el informe de ventas de ECOM. Requiere especificar el mes (1-12).',
+            uploadType: 'single',
+            requiresMonth: true,
+            endpoint: '/transform/ventas'
+        },
+        'union': {
+            title: 'Unión ventas mes y anuales',
+            description: 'Combina el archivo de ventas del mes con el archivo de ventas acumuladas del año.',
+            uploadType: 'double',
+            endpoint: '/transform/union'
+        },
+        'exhibidores': {
+            title: 'Base de datos exhibidores',
+            description: 'Procesa el archivo de maestra de exhibidores de ECOM. Debe ser un archivo en formato .csv',
+            uploadType: 'single',
+            endpoint: '/transform/exhibidores'
+        }
+    };
+
+    function selectOption(option) {
+        currentOption = option;
+        const config = options[option];
+        
+        // Update UI
+        document.getElementById('welcome-panel').classList.add('hidden');
+        document.getElementById('upload-panel').classList.remove('hidden');
+        
+        document.getElementById('panel-title').textContent = config.title;
+        document.getElementById('panel-description').textContent = config.description;
+        
+        // Reset form
+        resetForm();
+        
+        // Show appropriate upload type
+        if (config.uploadType === 'single') {
+            document.getElementById('single-upload').classList.remove('hidden');
+            document.getElementById('double-upload').classList.add('hidden');
+        } else {
+            document.getElementById('single-upload').classList.add('hidden');
+            document.getElementById('double-upload').classList.remove('hidden');
+        }
+        
+        // Show month input if required
+        if (config.requiresMonth) {
+            document.getElementById('month-input').classList.remove('hidden');
+        } else {
+            document.getElementById('month-input').classList.add('hidden');
+        }
+        
+        // Update button states
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.classList.remove('bg-blue-50', 'border-blue-300');
+            btn.classList.add('border-gray-200');
+        });
+        event.target.closest('.option-btn').classList.add('bg-blue-50', 'border-blue-300');
+        event.target.closest('.option-btn').classList.remove('border-gray-200');
+    }
+
+    function resetForm() {
+        document.getElementById('upload-form').reset();
+        document.getElementById('file-info').classList.add('hidden');
+        document.getElementById('file-acum-info').classList.add('hidden');
+        document.getElementById('file-mes-info').classList.add('hidden');
+        document.getElementById('progress-panel').classList.add('hidden');
+        document.getElementById('result-panel').classList.add('hidden');
+        document.getElementById('success-result').classList.add('hidden');
+        document.getElementById('error-result').classList.add('hidden');
+        updateSubmitButton();
+    }
+
+    // Drag and drop handlers
+    function dragOverHandler(event) {
+        event.preventDefault();
+        event.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+    }
+
+    function dragLeaveHandler(event) {
+        event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+    }
+
+    function dropHandler(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+        
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            document.getElementById('file-input').files = files;
+            showFileInfo(files[0], 'file-info', 'file-name');
+        }
+    }
+
+    function showFileInfo(file, infoId, nameId) {
+        document.getElementById(infoId).classList.remove('hidden');
+        document.getElementById(nameId).textContent = file.name;
+        updateSubmitButton();
+    }
+
+    function clearFile() {
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-info').classList.add('hidden');
+        updateSubmitButton();
+    }
+
+    function updateSubmitButton() {
+        const config = options[currentOption];
+        let canSubmit = false;
+        
+        if (config.uploadType === 'single') {
+            const fileInput = document.getElementById('file-input');
+            canSubmit = fileInput.files.length > 0;
+            
+            if (config.requiresMonth) {
+                const mesInput = document.getElementById('mes');
+                canSubmit = canSubmit && mesInput.value && mesInput.value >= 1 && mesInput.value <= 12;
+            }
+        } else {
+            const fileAcum = document.getElementById('file-acum');
+            const fileMes = document.getElementById('file-mes');
+            canSubmit = fileAcum.files.length > 0 && fileMes.files.length > 0;
+        }
+        
+        document.getElementById('submit-btn').disabled = !canSubmit;
+    }
+
+    // File input change handlers
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            showFileInfo(e.target.files[0], 'file-info', 'file-name');
+        }
+    });
+
+    document.getElementById('file-acum').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            document.getElementById('file-acum-info').classList.remove('hidden');
+            document.getElementById('file-acum-name').textContent = e.target.files[0].name;
+            updateSubmitButton();
+        }
+    });
+
+    document.getElementById('file-mes').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            document.getElementById('file-mes-info').classList.remove('hidden');
+            document.getElementById('file-mes-name').textContent = e.target.files[0].name;
+            updateSubmitButton();
+        }
+    });
+
+    document.getElementById('mes').addEventListener('input', updateSubmitButton);
+
+    // Form submission
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const config = options[currentOption];
+        const formData = new FormData();
+        
+        if (config.uploadType === 'single') {
+            const fileInput = document.getElementById('file-input');
+            formData.append('archivo', fileInput.files[0]);
+            
+            if (config.requiresMonth) {
+                formData.append('mes', document.getElementById('mes').value);
+            }
+        } else {
+            formData.append('archivo_acum', document.getElementById('file-acum').files[0]);
+            formData.append('archivo_mes', document.getElementById('file-mes').files[0]);
+        }
+        
+        // Show progress
+        document.getElementById('progress-panel').classList.remove('hidden');
+        document.getElementById('result-panel').classList.add('hidden');
+        
+        // Submit
+        fetch(config.endpoint, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('progress-panel').classList.add('hidden');
+            document.getElementById('result-panel').classList.remove('hidden');
+            
+            if (data.success) {
+                document.getElementById('success-result').classList.remove('hidden');
+                document.getElementById('error-result').classList.add('hidden');
+                document.getElementById('download-link').href = data.download_url;
+                loadRecentFiles();
+            } else {
+                document.getElementById('success-result').classList.add('hidden');
+                document.getElementById('error-result').classList.remove('hidden');
+                document.getElementById('error-message').textContent = data.error;
+            }
+        })
+        .catch(error => {
+            document.getElementById('progress-panel').classList.add('hidden');
+            document.getElementById('result-panel').classList.remove('hidden');
+            document.getElementById('success-result').classList.add('hidden');
+            document.getElementById('error-result').classList.remove('hidden');
+            document.getElementById('error-message').textContent = 'Error de conexión: ' + error.message;
+        });
+    });
+
+    function loadRecentFiles() {
+        fetch('/api/recent-files')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('recent-files');
+            if (data.files && data.files.length > 0) {
+                container.innerHTML = data.files.map(file => `
+                    <div class="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
+                        <div class="flex items-center">
+                            <i class="fas fa-file text-gray-400 mr-3"></i>
+                            <div>
+                                <p class="font-medium text-gray-900">${file.name}</p>
+                                <p class="text-sm text-gray-500">${file.date}</p>
+                            </div>
+                        </div>
+                        <a href="${file.url}" class="text-blue-600 hover:text-blue-800 text-sm">
+                            <i class="fas fa-download mr-1"></i>
+                            Descargar
+                        </a>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="text-gray-500 text-sm">No hay archivos procesados recientemente.</p>';
+            }
+        });
+    }
+
+    // Load recent files on page load
+    loadRecentFiles();
+</script>
+{% endblock %}

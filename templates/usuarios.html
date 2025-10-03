@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios - Zafiro BI{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-gem text-blue-600 text-xl mr-2"></i>
+                        <h1 class="text-xl font-bold text-gray-900">Zafiro BI</h1>
+                    </div>
+                    <div class="ml-6">
+                        <span class="text-sm text-gray-500">/ Gestión de Usuarios</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-700">
+                        <i class="fas fa-user mr-1"></i>
+                        {{ session.usuario }}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">
+                            Admin
+                        </span>
+                    </span>
+                    <a href="{{ url_for('dashboard') }}" 
+                       class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-arrow-left mr-1"></i>
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('logout') }}" 
+                       class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-sign-out-alt mr-1"></i>
+                        Cerrar Sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- Header -->
+            <div class="md:flex md:items-center md:justify-between mb-6">
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        <i class="fas fa-users mr-3 text-blue-600"></i>
+                        Gestión de Usuarios
+                    </h2>
+                </div>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <button onclick="openCreateModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nuevo Usuario
+                    </button>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="bg-white shadow overflow-hidden sm:rounded-md">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex flex-col">
+                        <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                            <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                                <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Usuario
+                                                </th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Rol
+                                                </th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Estado
+                                                </th>
+                                                <th scope="col" class="relative px-6 py-3">
+                                                    <span class="sr-only">Acciones</span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="users-table-body" class="bg-white divide-y divide-gray-200">
+                                            <!-- Users will be loaded here via JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="create-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-10 backdrop-blur-md overflow-y-auto h-full w-full hidden" onclick="if(event.target === this) closeCreateModal()">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="relative mx-auto p-6 border border-gray-200 w-full max-w-md shadow-2xl rounded-lg bg-white" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Crear Nuevo Usuario</h3>
+                    <button type="button" onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="create-user-form" class="space-y-4">
+                    <div>
+                        <label for="new-username" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                        <input type="text" id="new-username" name="usuario" required
+                               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    
+                    <div>
+                        <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                        <input type="password" id="new-password" name="password" required
+                               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    
+                    <div>
+                        <label for="new-role" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                        <select id="new-role" name="rol" required
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <option value="user">Usuario</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="closeCreateModal()"
+                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                            Crear Usuario
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-10 backdrop-blur-md overflow-y-auto h-full w-full hidden" onclick="if(event.target === this) closeEditModal()">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="relative mx-auto p-6 border border-gray-200 w-full max-w-md shadow-2xl rounded-lg bg-white" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Editar Usuario</h3>
+                    <button type="button" onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="edit-user-form" class="space-y-4">
+                    <input type="hidden" id="edit-user-id" name="user_id">
+                    
+                    <div>
+                        <label for="edit-username" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                        <input type="text" id="edit-username" name="usuario" required
+                               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                    
+                    <div>
+                        <label for="edit-password" class="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña (opcional)</label>
+                        <input type="password" id="edit-password" name="password"
+                               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                               placeholder="Dejar en blanco para mantener la actual">
+                    </div>
+                    
+                    <div>
+                        <label for="edit-role" class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                        <select id="edit-role" name="rol" required
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            <option value="user">Usuario</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="closeEditModal()"
+                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                            Actualizar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load users on page load
+    loadUsers();
+
+    function loadUsers() {
+        fetch('/api/usuarios')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('users-table-body');
+            if (data.success && data.usuarios) {
+                tbody.innerHTML = data.usuarios.map(user => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                        <i class="fas fa-user text-gray-600"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">${user.usuario}</div>
+                                    <div class="text-sm text-gray-500">ID: ${user.id}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                user.rol === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                            }">
+                                ${user.rol === 'admin' ? 'Administrador' : 'Usuario'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Activo
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="editUser(${user.id}, '${user.usuario}', '${user.rol}')" 
+                                    class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            ${user.usuario !== '{{ session.usuario }}' ? `
+                                <button onclick="deleteUser(${user.id}, '${user.usuario}')" 
+                                        class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">
+                            No hay usuarios registrados
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading users:', error);
+            showNotification('Error al cargar usuarios', 'error');
+        });
+    }
+
+    function openCreateModal() {
+        document.getElementById('create-modal').classList.remove('hidden');
+    }
+
+    function closeCreateModal() {
+        document.getElementById('create-modal').classList.add('hidden');
+        document.getElementById('create-user-form').reset();
+    }
+
+    function openEditModal() {
+        document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+        document.getElementById('edit-modal').classList.add('hidden');
+        document.getElementById('edit-user-form').reset();
+    }
+
+    function editUser(id, username, rol) {
+        document.getElementById('edit-user-id').value = id;
+        document.getElementById('edit-username').value = username;
+        document.getElementById('edit-role').value = rol;
+        openEditModal();
+    }
+
+    function deleteUser(id, username) {
+        if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"?`)) {
+            fetch('/api/usuarios/' + id, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Usuario eliminado exitosamente', 'success');
+                    loadUsers();
+                } else {
+                    showNotification(data.error || 'Error al eliminar usuario', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error al eliminar usuario', 'error');
+            });
+        }
+    }
+
+    // Create user form submission
+    document.getElementById('create-user-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const userData = Object.fromEntries(formData);
+        
+        fetch('/api/usuarios', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Usuario creado exitosamente', 'success');
+                closeCreateModal();
+                loadUsers();
+            } else {
+                showNotification(data.error || 'Error al crear usuario', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error al crear usuario', 'error');
+        });
+    });
+
+    // Edit user form submission
+    document.getElementById('edit-user-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const userData = Object.fromEntries(formData);
+        const userId = userData.user_id;
+        
+        // Remove empty password field
+        if (!userData.password) {
+            delete userData.password;
+        }
+        delete userData.user_id;
+        
+        fetch('/api/usuarios/' + userId, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Usuario actualizado exitosamente', 'success');
+                closeEditModal();
+                loadUsers();
+            } else {
+                showNotification(data.error || 'Error al actualizar usuario', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error al actualizar usuario', 'error');
+        });
+    });
+</script>
+{% endblock %}
