@@ -450,25 +450,38 @@
         .then(response => response.json())
         .then(data => {
             const container = document.getElementById('recent-files');
-            if (data.files && data.files.length > 0) {
-                container.innerHTML = data.files.map(file => `
+            if (data.success && data.archivos && data.archivos.length > 0) {
+                container.innerHTML = data.archivos.map(file => {
+                    // Convertir timestamp a fecha legible
+                    const date = new Date(file.fecha * 1000);
+                    const dateStr = date.toLocaleString('es-ES');
+                    // Formatear tamaño
+                    const sizeKB = (file.tamano / 1024).toFixed(2);
+                    
+                    return `
                     <div class="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
                         <div class="flex items-center">
-                            <i class="fas fa-file text-gray-400 mr-3"></i>
+                            <i class="fas fa-file-csv text-green-500 mr-3"></i>
                             <div>
-                                <p class="font-medium text-gray-900">${file.name}</p>
-                                <p class="text-sm text-gray-500">${file.date}</p>
+                                <p class="font-medium text-gray-900">${file.nombre}</p>
+                                <p class="text-sm text-gray-500">${dateStr} • ${sizeKB} KB</p>
                             </div>
                         </div>
-                        <a href="${file.url}" class="text-blue-600 hover:text-blue-800 text-sm">
+                        <a href="/download/" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                             <i class="fas fa-download mr-1"></i>
                             Descargar
                         </a>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } else {
                 container.innerHTML = '<p class="text-gray-500 text-sm">No hay archivos procesados recientemente.</p>';
             }
+        })
+        .catch(error => {
+            console.error('Error loading recent files:', error);
+            document.getElementById('recent-files').innerHTML = 
+                '<p class="text-gray-500 text-sm">No hay archivos procesados recientemente.</p>';
         });
     }
 
