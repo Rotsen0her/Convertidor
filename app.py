@@ -100,13 +100,7 @@ def clean_dataframe(df):
             print(f"[INFO] Primera fila es header duplicado, eliminando")
             df = df.iloc[1:].reset_index(drop=True)
     
-    # 6. Eliminar filas duplicadas completas (solo si hay más de 1 fila)
-    if len(df) > 1:
-        initial_rows = len(df)
-        df = df.drop_duplicates()
-        if len(df) < initial_rows:
-            print(f"[INFO] Eliminadas {initial_rows - len(df)} filas duplicadas")
-    
+
     # 7. Resetear índice
     df = df.reset_index(drop=True)
     
