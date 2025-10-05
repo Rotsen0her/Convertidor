@@ -21,7 +21,7 @@ sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 
 # Instalar Docker Compose
-sudo apt install docker-compose -y
+sudo apt install docker compose -y
 
 # Reiniciar sesión para aplicar cambios
 ```
@@ -74,20 +74,20 @@ server_name tu-dominio.com www.tu-dominio.com;
 
 ```bash
 # Primera vez (construye las imágenes)
-docker-compose up -d --build
+docker compose up -d --build
 
 # Ver logs en tiempo real
-docker-compose logs -f
+docker compose logs -f
 
 # Verificar que todo esté corriendo
-docker-compose ps
+docker compose ps
 ```
 
 ### 6. Verificar base de datos
 
 ```bash
 # Entrar al contenedor de MySQL
-docker-compose exec db mysql -u root -p
+docker compose exec db mysql -u root -p
 
 # Dentro de MySQL:
 USE zafiro_bi;
@@ -103,12 +103,12 @@ exit;
 sudo apt install certbot python3-certbot-nginx -y
 
 # Obtener certificado (el contenedor Nginx debe estar corriendo)
-docker-compose exec nginx certbot --nginx -d tu-dominio.com -d www.tu-dominio.com
+docker compose exec nginx certbot --nginx -d tu-dominio.com -d www.tu-dominio.com
 
 # Renovación automática
 sudo crontab -e
 # Agregar línea:
-0 3 * * * docker-compose -f /var/www/Convertidor/docker-compose.yml exec nginx certbot renew --quiet
+0 3 * * * docker compose -f /var/www/Convertidor/docker compose.yml exec nginx certbot renew --quiet
 ```
 
 ## 🔄 Actualizar la aplicación
@@ -123,23 +123,23 @@ cd /var/www/Convertidor
 
 # O manualmente:
 git pull origin main
-docker-compose down
-docker-compose up -d --build
+docker compose down
+docker compose up -d --build
 ```
 
 ## 🧪 Verificar funcionamiento
 
 1. **Verificar contenedores:**
    ```bash
-   docker-compose ps
+   docker compose ps
    ```
    Todos deben estar "Up"
 
 2. **Verificar logs:**
    ```bash
-   docker-compose logs backend
-   docker-compose logs nginx
-   docker-compose logs db
+   docker compose logs backend
+   docker compose logs nginx
+   docker compose logs db
    ```
 
 3. **Acceder a la aplicación:**
@@ -154,25 +154,25 @@ docker-compose up -d --build
 
 ```bash
 # Ver logs en vivo
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # Reiniciar un servicio específico
-docker-compose restart backend
+docker compose restart backend
 
 # Detener todo
-docker-compose down
+docker compose down
 
 # Detener y eliminar volúmenes (⚠️ CUIDADO: elimina la base de datos)
-docker-compose down -v
+docker compose down -v
 
 # Ver uso de recursos
 docker stats
 
 # Entrar al contenedor backend
-docker-compose exec backend bash
+docker compose exec backend bash
 
 # Backup de base de datos
-docker-compose exec db mysqldump -u root -p zafiro_bi > backup_$(date +%Y%m%d).sql
+docker compose exec db mysqldump -u root -p zafiro_bi > backup_$(date +%Y%m%d).sql
 ```
 
 ## 🔐 Cambiar contraseña de admin
@@ -185,7 +185,7 @@ chmod +x reset-admin.sh
 
 Opción 2 - Manualmente desde Python:
 ```bash
-docker-compose exec backend python3 -c "
+docker compose exec backend python3 -c "
 from werkzeug.security import generate_password_hash
 print(generate_password_hash('tu_nueva_contraseña'))
 "
@@ -204,20 +204,20 @@ sudo systemctl stop apache2  # o nginx si hay uno instalado
 ### Base de datos no se conecta
 ```bash
 # Verificar que el contenedor db esté corriendo
-docker-compose ps db
+docker compose ps db
 
 # Ver logs de MySQL
-docker-compose logs db
+docker compose logs db
 
 # Verificar variables de entorno
-docker-compose exec backend env | grep MYSQL
+docker compose exec backend env | grep MYSQL
 ```
 
 ### Permisos de archivos
 ```bash
 # Dar permisos a directorios de uploads
-docker-compose exec backend mkdir -p uploads transformados
-docker-compose exec backend chmod 755 uploads transformados
+docker compose exec backend mkdir -p uploads transformados
+docker compose exec backend chmod 755 uploads transformados
 ```
 
 ## 📊 Monitoreo
@@ -231,7 +231,7 @@ Recomendaciones para producción:
 ## 🆘 Soporte
 
 Si tienes problemas:
-1. Revisa los logs: `docker-compose logs`
+1. Revisa los logs: `docker compose logs`
 2. Verifica la configuración del `.env`
 3. Asegúrate de que los puertos estén abiertos
 4. Revisa la configuración del dominio/DNS
