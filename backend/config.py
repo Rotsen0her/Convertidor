@@ -25,7 +25,7 @@ class Config:
     # Configuración de archivos
     UPLOAD_FOLDER = 'uploads'
     TRANSFORMED_FOLDER = 'transformados'
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max
+    MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500MB max
     
     # Extensiones permitidas
     ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}

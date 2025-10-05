@@ -1,42 +1,17 @@
-# Convertidor - Proyecto Flask con Docker
+cat > README.md << 'EOF'
+# Convertidor - Transformador de Datos
 
-## 🚀 Despliegue
+Sistema web para procesamiento y transformación de archivos Excel/CSV.
 
-### Paso 1: Compilar Tailwind localmente
+## 🚀 Deploy Manual (Desarrollo)
 
-**En Windows PowerShell:**
-```powershell
-npm install
-npm run build:css
-```
+### Instalación Rápida
 
-**O usa el script automatizado:**
-```powershell
-.\build.ps1
-```
-
-**En Linux/Mac:**
 ```bash
-npm install && npm run build:css
-```
+# 1. Clonar repositorio
+git clone https://github.com/Rotsen0her/Convertidor.git
+cd Convertidor
 
-### Paso 2: En el VPS
-```bash
-# Clonar repositorio
-git clone https://github.com/tuusuario/convertidor.git
-cd convertidor
-
-# Configurar variables de entorno
-cp .env.example .env
-nano .env
-
-# Levantar servicios
-docker compose up -d --build
-```
-
-### Paso 3: Configurar HTTPS (opcional)
-```bash
-docker exec -it convertidor_nginx certbot --nginx -d luziia.cloud -d www.luziia.cloud
-```
-
-## 📁 Estructura del proyecto
+# 2. Ejecutar deploy
+chmod +x deploy.sh
+./deploy.sh
