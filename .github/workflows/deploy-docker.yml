@@ -1,41 +1,35 @@
-name: Deploy with Docker
+cat > .github/workflows/deploy-docker.yml << 'EOF'
+name: Deploy to VPS with Docker
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'backend/**'
-      - 'nginx/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/deploy-docker.yml'
   workflow_dispatch:
 
 env:
-  VPS_HOST: 89.116.51.172
-  VPS_USER: root
-  DEPLOY_PATH: /var/www/convertidor
+  DEPLOY_PATH: /var/www/Convertidor
 
 jobs:
-  deploy-docker:
-    name: Deploy with Docker Compose
+  deploy:
+    name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
     
     steps:
       - name: 🔍 Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: 📦 Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
       
-      - name: 📥 Install dependencies
+      - name: 📥 Install Node dependencies
         run: npm ci
       
       - name: 🎨 Build Tailwind CSS
-        run: npm run build-css
+        run: npm run build:css
       
       - name: 🔐 Setup SSH
         env:
@@ -44,88 +38,140 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
       
-      - name: 💾 Create backup
+      - name: 💾 Create backup on server
         run: |
-          ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} << 'EOF'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             if [ -d ${{ env.DEPLOY_PATH }} ]; then
               timestamp=$(date +%Y%m%d_%H%M%S)
+              echo "📦 Creating backup..."
               tar -czf /tmp/convertidor_backup_${timestamp}.tar.gz \
-                --exclude='venv' --exclude='node_modules' --exclude='__pycache__' \
+                --exclude='node_modules' \
+                --exclude='__pycache__' \
+                --exclude='.git' \
                 ${{ env.DEPLOY_PATH }} 2>/dev/null || true
+              echo "✅ Backup created: /tmp/convertidor_backup_${timestamp}.tar.gz"
+              
+              # Mantener solo los últimos 5 backups
+              ls -t /tmp/convertidor_backup_*.tar.gz | tail -n +6 | xargs -r rm
             fi
           EOF
       
-      - name: 📤 Sync files
+      - name: 📤 Sync files to server
         run: |
           rsync -avz --progress --delete \
             --exclude 'node_modules' \
-            --exclude 'venv' \
             --exclude '__pycache__' \
             --exclude '.git' \
             --exclude '.env' \
             --exclude '*.pyc' \
             --exclude '*.log' \
-            ./ ${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.DEPLOY_PATH }}/
+            --exclude '.DS_Store' \
+            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/
       
       - name: 🐳 Deploy with Docker Compose
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run: |
-          ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} << 'EOF'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             set -e
             cd ${{ env.DEPLOY_PATH }}
             
-            # Verify .env exists
+            echo "📂 Directorio actual: $(pwd)"
+            
+            # Verificar que .env existe
             if [ ! -f .env ]; then
               echo "❌ Error: .env file not found"
+              echo "Por favor configura el archivo .env en el servidor"
               exit 1
             fi
             
-            # Stop current containers
-            echo "🛑 Stopping containers..."
-            docker-compose down
+            # Cargar variables del .env
+            source .env
             
-            # Build images
-            echo "🏗️  Building images..."
+            # Detener contenedores actuales
+            echo "🛑 Deteniendo contenedores..."
+            docker-compose down || true
+            
+            # Construir imágenes
+            echo "🏗️  Construyendo imágenes..."
             docker-compose build --no-cache
             
-            # Start services
-            echo "🚀 Starting services..."
+            # Levantar servicios
+            echo "🚀 Iniciando servicios..."
             docker-compose up -d
             
-            # Wait for MySQL
-            echo "⏳ Waiting for MySQL..."
+            # Esperar a que MySQL esté listo
+            echo "⏳ Esperando a que MySQL esté listo..."
             sleep 15
             
-            # Initialize database if needed
-            if [ -f init-db.sql ]; then
-              echo "📊 Initializing database..."
-              docker-compose exec -T db mysql -u root -p${MYSQL_ROOT_PASSWORD} < init-db.sql || true
+            # Verificar que los contenedores estén corriendo
+            if ! docker-compose ps | grep -q "Up"; then
+              echo "❌ Error: Los contenedores no se levantaron correctamente"
+              docker-compose logs
+              exit 1
             fi
             
-            # Show status
+            # Crear usuario admin si es la primera vez
+            echo "👤 Verificando usuario admin..."
+            ADMIN_EXISTS=$(docker-compose exec -T db mysql -u root -p${MYSQL_ROOT_PASSWORD} zafiro_bi -se "SELECT COUNT(*) FROM usuarios WHERE usuario='admin'" 2>/dev/null || echo "0")
+            
+            if [ "$ADMIN_EXISTS" = "0" ]; then
+              echo "📝 Creando usuario admin..."
+              ADMIN_HASH=$(docker-compose exec -T backend python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('${ADMIN_PASSWORD:-admin123}'))" | tr -d '\r\n')
+              
+              docker-compose exec -T db mysql -u root -p${MYSQL_ROOT_PASSWORD} zafiro_bi <<EOSQL
+              INSERT INTO usuarios (usuario, password, rol) VALUES ('admin', '${ADMIN_HASH}', 'admin');
+EOSQL
+              echo "✅ Usuario admin creado"
+            else
+              echo "ℹ️  Usuario admin ya existe"
+            fi
+            
+            # Mostrar estado
             echo ""
-            echo "✅ Deployment complete!"
-            echo ""
+            echo "📊 Estado de los contenedores:"
             docker-compose ps
+            echo ""
           EOF
       
-      - name: 🔍 Health check
+      - name: 🔍 Health Check
         run: |
+          echo "⏳ Esperando que la aplicación esté lista..."
           sleep 10
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.VPS_HOST }}/ || echo "000")
-          if [ "$response" = "200" ] || [ "$response" = "302" ]; then
-            echo "✅ Application is responding (HTTP $response)"
+          
+          # Probar puerto 8080 (contenedor Docker)
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.VPS_HOST }}:8080/ 2>/dev/null || echo "000")
+          
+          if [ "$response" = "200" ] || [ "$response" = "302" ] || [ "$response" = "301" ]; then
+            echo "✅ Aplicación respondiendo correctamente (HTTP $response)"
           else
-            echo "⚠️  Warning: Application returned HTTP $response"
+            echo "⚠️  Advertencia: La aplicación respondió con HTTP $response"
+            echo "Esto puede ser normal si tienes Nginx externo configurado"
           fi
       
-      - name: 📊 Deployment summary
+      - name: 📊 Deployment Summary
         if: always()
         run: |
-          echo "🎉 Docker deployment process completed"
-          echo "URL: http://${{ env.VPS_HOST }}"
           echo ""
-          echo "Useful commands:"
-          echo "  View logs: ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose logs -f'"
-          echo "  Status: ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose ps'"
+          echo "======================================"
+          echo "  🎉 Deploy Completado"
+          echo "======================================"
+          echo ""
+          echo "📝 Información:"
+          echo "  • Proyecto: Convertidor"
+          echo "  • Branch: ${{ github.ref_name }}"
+          echo "  • Commit: ${{ github.sha }}"
+          echo "  • Autor: ${{ github.actor }}"
+          echo ""
+          echo "🔗 URLs:"
+          echo "  • Contenedor directo: http://${{ secrets.VPS_HOST }}:8080"
+          echo "  • Con Nginx externo: http://convertidor.synapzys.com"
+          echo ""
+          echo "📋 Comandos útiles:"
+          echo "  • Ver logs:     ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose logs -f'"
+          echo "  • Ver estado:   ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose ps'"
+          echo "  • Reiniciar:    ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose restart'"
+          echo ""
+EOF
