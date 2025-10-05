@@ -12,6 +12,9 @@ npm run build:css
 
 # Crear directorios necesarios
 echo "📁 Creando directorios..."
+mkdir -p backend/static/css
+mkdir -p backend/static/js
+mkdir -p backend/static/images
 mkdir -p nginx/certbot/conf
 mkdir -p nginx/certbot/www
 
@@ -20,8 +23,8 @@ chmod +x backend/start_gunicorn.sh
 
 # Reconstruir y levantar contenedores
 echo "🐳 Reconstruyendo contenedores..."
-docker compose down
-docker compose up -d --build
+docker-compose down
+docker-compose up -d --build
 
 echo "✅ Deploy completado!"
 echo "📊 Estado de los contenedores:"
