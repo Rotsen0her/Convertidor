@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Transformador de Datos{% endblock %}</title>
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Estilos para modales con backdrop blur */
+        .modal-backdrop {
+            transition: opacity 0.3s ease-in-out;
+        }
+        
+        .modal-backdrop.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .modal-backdrop:not(.hidden) {
+            opacity: 1;
+        }
+        
+        /* Animación suave para el contenido del modal */
+        .modal-backdrop > div > div {
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="h-full">
+    {% block body %}{% endblock %}
+    
+    <!-- Scripts -->
+    <script>
+        // Funciones globales para la interfaz
+        function showNotification(message, type = 'success') {
+            console.log('Mostrando notificación:', message, 'Tipo:', type);
+            
+            const notification = document.createElement('div');
+            
+            // Mapear tipos de Flask a colores
+            let bgColor = 'bg-blue-500';
+            if (type === 'success') bgColor = 'bg-green-500';
+            else if (type === 'error' || type === 'danger') bgColor = 'bg-red-500';
+            else if (type === 'warning') bgColor = 'bg-yellow-500';
+            else if (type === 'info') bgColor = 'bg-blue-500';
+            
+            notification.className = 'fixed bottom-4 left-4 p-4 rounded-lg shadow-lg z-50 ' + bgColor + ' text-white';
+            notification.style.minWidth = '250px';
+            notification.style.maxWidth = '400px';
+            notification.innerHTML = '<div class="flex items-center"><span>' + message + '</span><button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white hover:text-gray-200"><i class="fas fa-times"></i></button></div>';
+            
+            document.body.appendChild(notification);
+            console.log('Notificación añadida al DOM');
+            
+            // Auto remove after 5 seconds
+            setTimeout(function() {
+                if (notification.parentElement) {
+                    notification.remove();
+                    console.log('Notificación eliminada automáticamente');
+                }
+            }, 5000);
+        }
+
+        // Mostrar mensajes flash cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM cargado, verificando mensajes flash...');
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    console.log('Mensajes flash encontrados: {{ messages|length }}');
+                    {% for category, message in messages %}
+                        showNotification('{{ message|safe }}', '{{ category }}');
+                    {% endfor %}
+                {% else %}
+                    console.log('No hay mensajes flash');
+                {% endif %}
+            {% endwith %}
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

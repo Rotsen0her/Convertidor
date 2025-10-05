@@ -13,9 +13,12 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Cache en memoria para archivos transformados (temporal)
-# Estructura: {user_id: {'filename': 'nombre.csv', 'data': bytes, 'timestamp': datetime}}
-file_cache = {}
+# Directorio de cache para archivos procesados (filesystem-based para multi-worker)
+# Cada usuario tendrá un archivo temporal con metadata JSON
+import json
+CACHE_DIR = os.path.join(tempfile.gettempdir(), 'convertidor_cache')
+if not os.path.exists(CACHE_DIR):
+    os.makedirs(CACHE_DIR, mode=0o755)
 
 ALLOWED_EXTENSIONS = app.config['ALLOWED_EXTENSIONS']
 
@@ -243,7 +246,7 @@ def read_excel_safe(file_obj, filename):
         raise
 
 def save_to_cache(user_id, filename, dataframe):
-    """Guarda un DataFrame en el cache del usuario"""
+    """Guarda un DataFrame en el cache del usuario (filesystem)"""
     # NO limpiar aquí - ya se limpió en read_excel_safe
     # Solo verificar que no esté vacío
     if len(dataframe) == 0:
@@ -256,19 +259,49 @@ def save_to_cache(user_id, filename, dataframe):
     # La columna Venta - IVA contiene comas, así que pandas añadirá las comillas automáticamente
     dataframe.to_csv(output, index=False, encoding='utf-8-sig', sep=',', quoting=0)
     output.seek(0)
+    csv_data = output.getvalue()
     
-    # Guardar en cache
-    file_cache[user_id] = {
+    # Guardar archivo CSV en filesystem
+    cache_file_path = os.path.join(CACHE_DIR, f'user_{user_id}.csv')
+    cache_meta_path = os.path.join(CACHE_DIR, f'user_{user_id}.json')
+    
+    with open(cache_file_path, 'wb') as f:
+        f.write(csv_data)
+    
+    # Guardar metadata
+    metadata = {
         'filename': filename,
-        'data': output.getvalue(),
-        'timestamp': datetime.now()
+        'timestamp': datetime.now().isoformat(),
+        'size': len(csv_data)
     }
+    with open(cache_meta_path, 'w') as f:
+        json.dump(metadata, f)
     
     print(f"[INFO] Archivo guardado en cache: {filename} ({len(dataframe)} filas, {len(dataframe.columns)} columnas)")
     
 def get_from_cache(user_id):
-    """Obtiene archivo del cache del usuario"""
-    return file_cache.get(user_id)
+    """Obtiene archivo del cache del usuario (filesystem)"""
+    cache_file_path = os.path.join(CACHE_DIR, f'user_{user_id}.csv')
+    cache_meta_path = os.path.join(CACHE_DIR, f'user_{user_id}.json')
+    
+    if not os.path.exists(cache_file_path) or not os.path.exists(cache_meta_path):
+        return None
+    
+    try:
+        with open(cache_file_path, 'rb') as f:
+            data = f.read()
+        
+        with open(cache_meta_path, 'r') as f:
+            metadata = json.load(f)
+        
+        return {
+            'filename': metadata['filename'],
+            'data': data,
+            'timestamp': datetime.fromisoformat(metadata['timestamp'])
+        }
+    except Exception as e:
+        print(f"[ERROR] Error reading cache for user {user_id}: {e}")
+        return None
 
 def transformar_ventas(df, mes=''):
     """

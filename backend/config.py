@@ -16,11 +16,11 @@ class Config:
     PERMANENT_SESSION_LIFETIME = 3600  # 1 hora en segundos
     
     # Configuración MySQL
-    MYSQL_HOST = os.environ.get('MYSQL_HOST') or 'localhost'
+    MYSQL_HOST = os.environ.get('MYSQL_HOST') or 'db'
     MYSQL_PORT = int(os.environ.get('MYSQL_PORT', 3306))
     MYSQL_USER = os.environ.get('MYSQL_USER') or 'root'
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD') or 'tu_password'
-    MYSQL_DB = os.environ.get('MYSQL_DB') or 'zafiro_bi'
+    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD') or ''
+    MYSQL_DB = os.environ.get('MYSQL_DATABASE') or 'joseberrio_db'
     
     # Configuración de archivos
     UPLOAD_FOLDER = 'uploads'

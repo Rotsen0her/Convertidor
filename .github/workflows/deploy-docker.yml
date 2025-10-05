@@ -1,0 +1,131 @@
+name: Deploy with Docker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'nginx/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy-docker.yml'
+  workflow_dispatch:
+
+env:
+  VPS_HOST: 89.116.51.172
+  VPS_USER: root
+  DEPLOY_PATH: /var/www/convertidor
+
+jobs:
+  deploy-docker:
+    name: Deploy with Docker Compose
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔍 Checkout code
+        uses: actions/checkout@v3
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: 📥 Install dependencies
+        run: npm ci
+      
+      - name: 🎨 Build Tailwind CSS
+        run: npm run build-css
+      
+      - name: 🔐 Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.VPS_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: 💾 Create backup
+        run: |
+          ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} << 'EOF'
+            if [ -d ${{ env.DEPLOY_PATH }} ]; then
+              timestamp=$(date +%Y%m%d_%H%M%S)
+              tar -czf /tmp/convertidor_backup_${timestamp}.tar.gz \
+                --exclude='venv' --exclude='node_modules' --exclude='__pycache__' \
+                ${{ env.DEPLOY_PATH }} 2>/dev/null || true
+            fi
+          EOF
+      
+      - name: 📤 Sync files
+        run: |
+          rsync -avz --progress --delete \
+            --exclude 'node_modules' \
+            --exclude 'venv' \
+            --exclude '__pycache__' \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude '*.pyc' \
+            --exclude '*.log' \
+            ./ ${{ env.VPS_USER }}@${{ env.VPS_HOST }}:${{ env.DEPLOY_PATH }}/
+      
+      - name: 🐳 Deploy with Docker Compose
+        run: |
+          ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} << 'EOF'
+            set -e
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Verify .env exists
+            if [ ! -f .env ]; then
+              echo "❌ Error: .env file not found"
+              exit 1
+            fi
+            
+            # Stop current containers
+            echo "🛑 Stopping containers..."
+            docker-compose down
+            
+            # Build images
+            echo "🏗️  Building images..."
+            docker-compose build --no-cache
+            
+            # Start services
+            echo "🚀 Starting services..."
+            docker-compose up -d
+            
+            # Wait for MySQL
+            echo "⏳ Waiting for MySQL..."
+            sleep 15
+            
+            # Initialize database if needed
+            if [ -f init-db.sql ]; then
+              echo "📊 Initializing database..."
+              docker-compose exec -T db mysql -u root -p${MYSQL_ROOT_PASSWORD} < init-db.sql || true
+            fi
+            
+            # Show status
+            echo ""
+            echo "✅ Deployment complete!"
+            echo ""
+            docker-compose ps
+          EOF
+      
+      - name: 🔍 Health check
+        run: |
+          sleep 10
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.VPS_HOST }}/ || echo "000")
+          if [ "$response" = "200" ] || [ "$response" = "302" ]; then
+            echo "✅ Application is responding (HTTP $response)"
+          else
+            echo "⚠️  Warning: Application returned HTTP $response"
+          fi
+      
+      - name: 📊 Deployment summary
+        if: always()
+        run: |
+          echo "🎉 Docker deployment process completed"
+          echo "URL: http://${{ env.VPS_HOST }}"
+          echo ""
+          echo "Useful commands:"
+          echo "  View logs: ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose logs -f'"
+          echo "  Status: ssh ${{ env.VPS_USER }}@${{ env.VPS_HOST }} 'cd ${{ env.DEPLOY_PATH }} && docker-compose ps'"

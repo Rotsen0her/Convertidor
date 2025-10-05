@@ -1,0 +1,45 @@
+services:
+  backend:
+    build: ./backend
+    container_name: convertidor_backend
+    restart: unless-stopped
+    env_file: .env
+    command: ["/app/start_gunicorn.sh"]
+    volumes:
+      - ./backend:/app
+      - static_data:/app/static
+    expose:
+      - "8000"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: convertidor_db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  nginx:
+    build: ./nginx
+    container_name: convertidor_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - static_data:/var/www/convertidor/static
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  static_data:

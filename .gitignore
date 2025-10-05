@@ -1,14 +1,131 @@
-# Archivos generados por Tailwind
+# =========================================
+# � ARCHIVOS SENSIBLES (NUNCA SUBIR)
+# =========================================
+.env
+.env.local
+.env.production
+*.pem
+*.key
+*.cert
+*.crt
+
+# =========================================
+# �🐍 Entorno Python
+# =========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
 dist/
-src/output.css
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Node modules
-node_modules/
+# Virtualenv
+venv/
+ENV/
+env/
+.venv
 
-# Archivos de sistema
-.DS_Store
-Thumbs.db
-
-# Archivos de configuración de editores
-.vscode/
+# PyCharm
 .idea/
+
+# =========================================
+# 📦 Node / Tailwind
+# =========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+.eslintcache
+
+# Tailwind output (se genera en build)
+static/css/output.css
+backend/static/css/output.css
+
+# =========================================
+# 🗄️ Base de datos
+# =========================================
+*.db
+*.sqlite
+*.sqlite3
+*.sql.backup
+
+# =========================================
+# 🧰 Archivos temporales / generados
+# =========================================
+*.log
+*.csv
+*.xlsx
+*.xls
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# Directorios de upload
+uploads/
+transformados/
+cache/
+/tmp/
+
+# =========================================
+# 💻 Archivos de sistema / IDEs
+# =========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =========================================
+# 🐳 Docker
+# =========================================
+*.pid
+*.sock
+docker-compose.override.yml
+
+# Volúmenes y certificados
+nginx/certbot/
+
+# =========================================
+# 📋 Backups
+# =========================================
+*.backup
+backup_*/
+*.tar.gz
+*.zip
+
+# =========================================
+# 🔧 Configuración específica del servidor
+# =========================================
+# Estos archivos deben configurarse manualmente en el servidor
+ecosystem.config.js.production
+pm2.config.js
