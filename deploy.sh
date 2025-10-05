@@ -30,13 +30,13 @@ chmod +x backend/start_gunicorn.sh
 
 # Reconstruir y levantar contenedores
 echo "🐳 Reconstruyendo contenedores..."
-docker-compose down
-docker-compose up -d --build
+docker compose down
+docker compose up -d --build
 
 echo "✅ Deploy completado!"
 echo "📊 Estado de los contenedores:"
-docker-compose ps
+docker compose ps
 
 echo ""
 echo "🌐 Tu aplicación debería estar disponible en:"
-echo "   http://convertidor.synapzys.com"
+echo "   Tu.dominio.com"
