@@ -3,7 +3,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Instala dependencias del sistema
-RUN apt-get update && apt-get install -y libmysqlclient-dev build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copia dependencias Python
 COPY requirements.txt .
