@@ -25,14 +25,15 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./zafiro_bi.sql:/docker-entrypoint-initdb.d/init-db.sql
 
   nginx:
     build: ./nginx
     container_name: convertidor_nginx
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
     volumes:
       - static_data:/var/www/convertidor/static
       - ./nginx/certbot/conf:/etc/letsencrypt
