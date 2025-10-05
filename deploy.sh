@@ -1,67 +1,67 @@
 #!/bin/bash
-# Script de deploy automatizado para VPS con Nginx externo
+# Script de actualización rápida para aplicación desplegada
 set -e  # Salir si hay error
 
-echo "🚀 Iniciando deploy de Convertidor..."
+echo "� Actualizando Convertidor..."
 
 # Backup de archivos críticos antes del pull
-echo "💾 Creando backup de configuración..."
-if [ -f "nginx/default.conf" ]; then
-    cp nginx/default.conf nginx/default.conf.backup
-fi
-if [ -f ".env" ]; then
-    cp .env .env.backup
-fi
+echo "💾 Backup de configuración..."
+[ -f "nginx/default.conf" ] && cp nginx/default.conf nginx/default.conf.backup
+[ -f ".env" ] && cp .env .env.backup
 
-# Actualizar código
-echo "📥 Actualizando código desde GitHub..."
+# Actualizar código desde GitHub
+echo "📥 Obteniendo cambios desde GitHub..."
 git stash  # Guardar cambios locales temporalmente
 git pull origin main
-git stash pop || echo "⚠️  No hay cambios locales que restaurar"
+git stash pop 2>/dev/null || echo "✓ Sin cambios locales"
 
-# Instalar dependencias de Node si es necesario
-if [ ! -d "node_modules" ]; then
-    echo "📦 Instalando dependencias de Node..."
-    npm install
+# Compilar Tailwind CSS solo si hay cambios en frontend
+if git diff HEAD@{1} --name-only | grep -qE "(tailwind|\.css|templates/)"; then
+    echo "🎨 Compilando Tailwind CSS..."
+    npm run build:css
+else
+    echo "⏭️  CSS sin cambios"
 fi
 
-# Compilar Tailwind CSS
-echo "🎨 Compilando Tailwind CSS..."
-npm run build:css
+# Reiniciar solo contenedores necesarios (sin rebuild completo)
+echo "� Reiniciando servicios..."
 
-# Crear directorios necesarios
-echo "📁 Creando directorios..."
-mkdir -p backend/static/css
-mkdir -p backend/static/js
-mkdir -p backend/static/images
-mkdir -p nginx/certbot/conf
-mkdir -p nginx/certbot/www
+# Detectar qué cambió para reiniciar solo lo necesario
+BACKEND_CHANGED=$(git diff HEAD@{1} --name-only | grep -E "^backend/" || true)
+NGINX_CHANGED=$(git diff HEAD@{1} --name-only | grep -E "^nginx/" || true)
 
-# Dar permisos al script de gunicorn
-chmod +x backend/start_gunicorn.sh
+if [ -n "$BACKEND_CHANGED" ]; then
+    echo "   ↻ Backend modificado, reiniciando..."
+    docker compose restart backend
+else
+    echo "   ✓ Backend sin cambios"
+fi
 
-# Reconstruir y levantar contenedores
-echo "🐳 Reconstruyendo contenedores..."
-docker compose down
-docker compose up -d --build
-
-# Restaurar configuración SSL si hay conflictos
-if [ -f "nginx/default.conf.backup" ]; then
-    if ! grep -q "ssl_certificate" nginx/default.conf; then
-        echo "⚠️  Configuración SSL no detectada, restaurando backup..."
-        mv nginx/default.conf.backup nginx/default.conf
-    else
-        rm nginx/default.conf.backup
+if [ -n "$NGINX_CHANGED" ]; then
+    echo "   ↻ Nginx modificado, reiniciando..."
+    
+    # Restaurar SSL si se sobrescribió
+    if [ -f "nginx/default.conf.backup" ]; then
+        if ! grep -q "ssl_certificate" nginx/default.conf; then
+            echo "   ⚠️  Restaurando config SSL..."
+            mv nginx/default.conf.backup nginx/default.conf
+        fi
     fi
+    
+    docker compose restart nginx
+else
+    echo "   ✓ Nginx sin cambios"
 fi
 
-echo "✅ Deploy completado!"
-echo "📊 Estado de los contenedores:"
+# Limpiar backups si todo está bien
+[ -f "nginx/default.conf.backup" ] && rm -f nginx/default.conf.backup
+[ -f ".env.backup" ] && rm -f .env.backup
+
+echo ""
+echo "✅ Actualización completada!"
+echo "📊 Estado de servicios:"
 docker compose ps
 
 echo ""
-echo "🌐 Tu aplicación debería estar disponible en:"
-echo "   https://luziia.cloud"
-echo ""
-echo "🔍 Verificar logs:"
-echo "   docker compose logs -f backend"
+echo "🌐 Aplicación: https://luziia.cloud"
+echo "🔍 Ver logs: docker compose logs -f backend"
