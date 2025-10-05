@@ -32,8 +32,7 @@ services:
     container_name: convertidor_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
     volumes:
       - static_data:/var/www/convertidor/static
       - ./nginx/certbot/conf:/etc/letsencrypt
