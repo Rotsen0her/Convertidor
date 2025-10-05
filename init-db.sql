@@ -1,9 +1,9 @@
 -- Script de inicialización de base de datos
 -- Crea la base de datos y las tablas necesarias
 
-CREATE DATABASE IF NOT EXISTS convertidor_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS joseberrio_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-USE convertidor_db;
+USE joseberrio_db;
 
 -- Tabla de usuarios
 CREATE TABLE IF NOT EXISTS usuarios (
