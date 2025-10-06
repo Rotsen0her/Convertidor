@@ -4,8 +4,8 @@
   "description": "Convertidor de datos con Tailwind CSS",
   "main": "index.js",
   "scripts": {
-    "build:css": "tailwindcss -i ./src/input.css -o ./backend/static/css/output.css --minify",
-    "watch:css": "tailwindcss -i ./src/input.css -o ./backend/static/css/output.css --watch"
+    "build-css": "tailwindcss -i ./src/input.css -o ./backend/static/css/output.css --minify",
+    "watch-css": "tailwindcss -i ./src/input.css -o ./backend/static/css/output.css --watch"
   },
   "author": "Synapzys",
   "license": "ISC",
