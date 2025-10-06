@@ -22,7 +22,7 @@ npm install
 
 echo ""
 echo "🎨 Compilando Tailwind CSS..."
-npm run build:css
+npm run build-css
 
 echo ""
 echo "📁 Creando estructura de directorios..."
