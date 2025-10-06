@@ -12,24 +12,32 @@ echo "💾 Backup de configuración..."
 # Actualizar código desde GitHub
 echo "📥 Obteniendo cambios desde GitHub..."
 
-# Verificar si hay conflictos pendientes
-if git diff --name-only --diff-filter=U | grep -q .; then
-    echo "⚠️  Hay conflictos sin resolver. Limpiando..."
-    git reset --hard
+# Verificar si hay un merge en curso y abortarlo
+if [ -f ".git/MERGE_HEAD" ] || git status | grep -q "Unmerged paths"; then
+    echo "⚠️  Abortando merge en curso..."
+    git merge --abort 2>/dev/null || true
+    git reset --hard origin/main
 fi
 
-# Guardar cambios locales temporalmente
-git stash
+# Descartar cambios en archivos que se generan automáticamente
+echo "🧹 Limpiando archivos generados automáticamente..."
+git checkout -- package-lock.json 2>/dev/null || true
+
+# Guardar cambios locales solo de archivos críticos (.env y nginx)
+git stash push -m "deploy-backup" .env nginx/default.conf 2>/dev/null || echo "✓ Sin cambios críticos locales"
 
 # Pull desde GitHub
+echo "⬇️  Descargando cambios..."
 if ! git pull origin main; then
-    echo "❌ Error al hacer pull. Revirtiendo..."
+    echo "❌ Error al hacer pull"
     git stash pop 2>/dev/null || true
     exit 1
 fi
 
-# Restaurar cambios locales si existen
-git stash pop 2>/dev/null || echo "✓ Sin cambios locales"
+# Restaurar configuración local si existe
+if git stash list | grep -q "deploy-backup"; then
+    git stash pop 2>/dev/null || echo "✓ Configuración local restaurada"
+fi
 
 # Instalar/actualizar dependencias si package.json cambió
 if git diff HEAD@{1} --name-only | grep -q "package.json"; then
@@ -38,7 +46,7 @@ if git diff HEAD@{1} --name-only | grep -q "package.json"; then
 fi
 
 # Compilar Tailwind CSS solo si hay cambios en frontend
-if git diff HEAD@{1} --name-only | grep -qE "(tailwind|\.css|templates/)"; then
+if git diff HEAD@{1} --name-only | grep -qE "(tailwind|\.css|templates/|package\.json)"; then
     echo "🎨 Compilando Tailwind CSS..."
     npm run build-css
 else
