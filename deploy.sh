@@ -2,7 +2,7 @@
 # Script de actualización rápida para aplicación desplegada
 set -e  # Salir si hay error
 
-echo "� Actualizando Convertidor..."
+echo "🚀 Actualizando Convertidor..."
 
 # Backup de archivos críticos antes del pull
 echo "💾 Backup de configuración..."
@@ -11,9 +11,31 @@ echo "💾 Backup de configuración..."
 
 # Actualizar código desde GitHub
 echo "📥 Obteniendo cambios desde GitHub..."
-git stash  # Guardar cambios locales temporalmente
-git pull origin main
+
+# Verificar si hay conflictos pendientes
+if git diff --name-only --diff-filter=U | grep -q .; then
+    echo "⚠️  Hay conflictos sin resolver. Limpiando..."
+    git reset --hard
+fi
+
+# Guardar cambios locales temporalmente
+git stash
+
+# Pull desde GitHub
+if ! git pull origin main; then
+    echo "❌ Error al hacer pull. Revirtiendo..."
+    git stash pop 2>/dev/null || true
+    exit 1
+fi
+
+# Restaurar cambios locales si existen
 git stash pop 2>/dev/null || echo "✓ Sin cambios locales"
+
+# Instalar/actualizar dependencias si package.json cambió
+if git diff HEAD@{1} --name-only | grep -q "package.json"; then
+    echo "📦 Actualizando dependencias npm..."
+    npm install
+fi
 
 # Compilar Tailwind CSS solo si hay cambios en frontend
 if git diff HEAD@{1} --name-only | grep -qE "(tailwind|\.css|templates/)"; then
@@ -24,7 +46,7 @@ else
 fi
 
 # Reiniciar solo contenedores necesarios (sin rebuild completo)
-echo "� Reiniciando servicios..."
+echo "🔄 Reiniciando servicios..."
 
 # Detectar qué cambió para reiniciar solo lo necesario
 BACKEND_CHANGED=$(git diff HEAD@{1} --name-only | grep -E "^backend/" || true)
