@@ -18,7 +18,7 @@ git stash pop 2>/dev/null || echo "✓ Sin cambios locales"
 # Compilar Tailwind CSS solo si hay cambios en frontend
 if git diff HEAD@{1} --name-only | grep -qE "(tailwind|\.css|templates/)"; then
     echo "🎨 Compilando Tailwind CSS..."
-    npm run build:css
+    npm run build-css
 else
     echo "⏭️  CSS sin cambios"
 fi
