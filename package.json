@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Convertidor de datos con Tailwind CSS",
   "main": "index.js",
-    "scripts": {
-    "build-css": "npx @tailwindcss/cli -i ./src/input.css -o ./backend/static/css/output.css",
-    "watch-css": "npx @tailwindcss/cli -i ./src/input.css -o ./backend/static/css/output.css --watch"
+  "scripts": {
+    "build-css": "npx tailwindcss -i ./src/input.css -o ./backend/static/css/output.css --minify",
+    "watch-css": "npx tailwindcss -i ./src/input.css -o ./backend/static/css/output.css --watch"
   },
   "author": "Synapzys",
   "license": "ISC",
