@@ -1,5 +1,5 @@
 """
-Script para procesar archivos de clientes con soporte robusto para archivos .xls (HTML y Excel binario)
+Script para procesar archivos de clientes (transformación según especificación original)
 """
 import pandas as pd
 import os
@@ -18,80 +18,29 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         extension = os.path.splitext(archivo_entrada)[1].lower()
         
-        # Lectura mejorada para .xls (detecta si es HTML o Excel real)
+        # Lectura según extensión
         if extension == ".xls":
-            print("[INFO] Detectando tipo de archivo .xls...")
+            # Convertir .xls a .xlsx internamente para evitar problemas de encoding
+            print("[INFO] Detectado archivo .xls, convirtiendo a .xlsx internamente...")
             
-            # Leer contenido para detectar tipo
-            with open(archivo_entrada, 'rb') as f:
-                file_content = f.read()
-            
-            # Detectar si es HTML
-            header = file_content[:1024].decode('latin-1', errors='ignore').lower()
-            is_html = any(marker in header for marker in ['<html', '<!doctype', '<htm', '<table'])
-            
-            if is_html:
-                print("[INFO] Archivo .xls es HTML, extrayendo tabla...")
-                # Leer como HTML con manejo robusto de encoding
-                try:
-                    # Decodificar el contenido completo primero para evitar lectura parcial
-                    print(f"[INFO] Decodificando contenido HTML ({len(file_content)} bytes)...")
-                    try:
-                        content_decoded = file_content.decode('latin-1', errors='ignore')
-                    except:
-                        content_decoded = file_content.decode('cp1252', errors='ignore')
-                    
-                    print(f"[INFO] Contenido decodificado: {len(content_decoded)} caracteres")
-                    dfs = pd.read_html(io.StringIO(content_decoded), header=0)
-                except ImportError as ie:
-                    print(f"[ERROR] Falta dependencia para leer HTML: {ie}")
-                    print("[INFO] Instale: pip install lxml html5lib")
-                    raise
+            try:
+                # Leer con xlrd (motor antiguo para .xls)
+                df_temp = pd.read_excel(archivo_entrada, engine='xlrd')
                 
-                if not dfs:
-                    raise ValueError("No se encontraron tablas en el archivo HTML")
-                df = dfs[0]
+                # Convertir a .xlsx en memoria usando openpyxl
+                xlsx_buffer = io.BytesIO()
+                with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
+                    df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
                 
-                print(f"[INFO] Tabla HTML extraida: {len(df)} filas, {len(df.columns)} columnas")
+                # Leer el .xlsx generado
+                xlsx_buffer.seek(0)
+                df = pd.read_excel(xlsx_buffer, engine='openpyxl')
                 
-                # Limpiar datos de HTML
-                print("[INFO] Limpiando datos extraidos...")
-                unnamed_cols = [col for col in df.columns if 'Unnamed' in str(col)]
-                if unnamed_cols:
-                    df = df.drop(columns=unnamed_cols)
-                    print(f"       Eliminadas {len(unnamed_cols)} columnas sin nombre")
+                print(f"[INFO] Conversión .xls -> .xlsx completada: {len(df)} filas, {len(df.columns)} columnas")
                 
-                filas_antes = len(df)
-                df = df.dropna(how='all')
-                filas_eliminadas = filas_antes - len(df)
-                if filas_eliminadas > 0:
-                    print(f"       Eliminadas {filas_eliminadas} filas vacias")
-                
-                if len(df) > 0:
-                    headers = df.columns.astype(str).str.strip().tolist()
-                    first_row = df.iloc[0].astype(str).str.strip().tolist()
-                    if headers == first_row:
-                        df = df.iloc[1:].reset_index(drop=True)
-                        print(f"       Eliminado header duplicado en primera fila")
-                
-                # Limpiar caracteres mal codificados
-                print("[INFO] Limpiando caracteres mal codificados...")
-                for col in df.columns:
-                    if df[col].dtype == 'object':
-                        df[col] = df[col].astype(str).str.replace('Ã', 'A', regex=False)
-                        df[col] = df[col].str.replace('Ã', 'O', regex=False)
-                        df[col] = df[col].str.replace('Ã', 'I', regex=False)
-                        df[col] = df[col].str.replace('Ã±', 'ñ', regex=False)
-                        df[col] = df[col].str.replace('Ã³', 'ó', regex=False)
-                        df[col] = df[col].str.replace('Ã­', 'í', regex=False)
-                        df[col] = df[col].str.replace('Ã¡', 'á', regex=False)
-                        df[col] = df[col].str.replace('Ã©', 'é', regex=False)
-                        df[col] = df[col].str.replace('Ãº', 'ú', regex=False)
-                
-                print(f"[OK] Limpieza completa: {len(df)} filas, {len(df.columns)} columnas")
-            else:
-                print("[INFO] Archivo .xls es Excel binario real")
-                df = pd.read_excel(archivo_entrada, engine="xlrd")
+            except Exception as e:
+                print(f"[ERROR] Error convirtiendo .xls a .xlsx: {e}")
+                raise
                 
         elif extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl")
@@ -102,41 +51,33 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         print(f"\n[INFO] Datos cargados: {len(df)} filas, {len(df.columns)} columnas")
         
-        # TRANSFORMACIÓN DE CLIENTES
+        # LIMPIEZA MÍNIMA: solo eliminar header duplicado si existe
+        if len(df) > 0:
+            headers = df.columns.astype(str).tolist()
+            first_row = df.iloc[0].astype(str).tolist()
+            if first_row == headers:
+                df = df.iloc[1:].reset_index(drop=True)
+                print(f"[INFO] Primera fila era header duplicado, eliminada")
+        
+        # TRANSFORMACIÓN DE CLIENTES (según txt original)
         print(f"\n[INFO] Aplicando transformaciones...")
         
         # Columnas esperadas (17 columnas según script original)
-        columnas_esperadas = [
+        columnas = [
             'Codigo Ecom', 'Sucursal', 'Documento', 'Ra. Social', 'Nombre Neg',
             'Dpto', 'Ciudad', 'Barrio', 'Segmento', 'Fecha',
             'Coordenada Y', 'Coordenada X', 'Exhibidor', 'Cod.Asesor',
             'Asesor', 'Coordenadas Gis', 'Socios Nutresa'
         ]
         
-        # Verificar qué columnas existen
-        columnas_disponibles = [col for col in columnas_esperadas if col in df.columns]
-        columnas_faltantes = [col for col in columnas_esperadas if col not in df.columns]
+        # Seleccionar columnas (sin agregar columnas faltantes, tal como en el txt)
+        df = df[columnas].copy()
         
-        if columnas_faltantes:
-            print(f"[WARN] Columnas faltantes (se agregarán vacías): {columnas_faltantes}")
-            # Agregar columnas faltantes con valores vacíos
-            for col in columnas_faltantes:
-                df[col] = ''
+        print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
         
-        # Seleccionar solo las columnas esperadas
-        df_procesado = df[columnas_esperadas].copy()
-        
-        print(f"[INFO] Columnas seleccionadas: {len(df_procesado.columns)} columnas")
-        
-        # Reemplazar NaN y 'nan' por cadenas vacías
-        df_procesado = df_procesado.fillna('')
-        df_procesado = df_procesado.replace('nan', '', regex=False)
-        
-        # Aplicar correcciones de ciudades y segmentos
-        df_procesado['Ciudad'] = df_procesado['Ciudad'].replace({'MOQITOS': 'MONITOS'})
-        
-        df_procesado['Segmento'] = df_procesado['Segmento'].replace({
-            'Reposición': 'Reposicion',  # Con tilde también
+        # Correcciones (según txt original)
+        df['Ciudad'] = df['Ciudad'].replace({'MOQITOS': 'MONITOS'})
+        df['Segmento'] = df['Segmento'].replace({
             'Reposicisn': 'Reposicion',
             'AU Multimisisn': 'AU Multimision',
             'Servicios de Alimentacisn': 'Servicios de Alimentacion',
@@ -145,27 +86,23 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         print(f"[INFO] Correcciones aplicadas")
         
-        # Conversión de tipos (convertir NaN a string vacío primero)
-        df_procesado['Codigo Ecom'] = df_procesado['Codigo Ecom'].astype(str).replace('nan', '')
-        df_procesado['Documento'] = df_procesado['Documento'].astype(str).replace('nan', '')
-        df_procesado['Exhibidor'] = df_procesado['Exhibidor'].astype(str).replace('nan', '')
-        df_procesado['Cod.Asesor'] = df_procesado['Cod.Asesor'].astype(str).replace('nan', '')
-        
-        # Formatear fecha (solo si no está vacía)
-        df_procesado['Fecha'] = df_procesado['Fecha'].replace('', pd.NaT)
-        df_procesado['Fecha'] = pd.to_datetime(df_procesado['Fecha'], errors='coerce')
-        df_procesado['Fecha'] = df_procesado['Fecha'].dt.strftime('%d-%m-%Y')
-        df_procesado['Fecha'] = df_procesado['Fecha'].fillna('')
+        # Conversión de tipos (según txt original)
+        df['Codigo Ecom'] = df['Codigo Ecom'].astype(str)
+        df['Documento'] = df['Documento'].astype(str)
+        df['Exhibidor'] = df['Exhibidor'].astype(str)
+        df['Cod.Asesor'] = df['Cod.Asesor'].astype(str)
+        df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
+        df['Fecha'] = df['Fecha'].dt.strftime('%d-%m-%Y')
         
         print(f"[INFO] Conversiones de tipo aplicadas")
         
         # Guardar resultado
         archivo_salida = os.path.join(carpeta_salida, 'maestra_clientes.csv')
         os.makedirs(carpeta_salida, exist_ok=True)
-        df_procesado.to_csv(archivo_salida, index=False, encoding='utf-8-sig')
+        df.to_csv(archivo_salida, index=False, encoding='utf-8-sig')
         
         print(f"[OK] Archivo guardado: {archivo_salida}")
-        print(f"[OK] Registros procesados: {len(df_procesado)}")
+        print(f"[OK] Registros procesados: {len(df)}")
         
         return True
         

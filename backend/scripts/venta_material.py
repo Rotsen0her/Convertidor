@@ -1,5 +1,5 @@
 """
-Script para procesar ventas por material con soporte robusto para archivos .xls (HTML y Excel binario)
+Script para procesar ventas por material (transformación según especificación original)
 """
 import pandas as pd
 import os
@@ -32,73 +32,29 @@ def ejecutar(archivo_entrada, mes):
     try:
         extension = os.path.splitext(archivo_entrada)[1].lower()
 
-        # Lectura mejorada para .xls (detecta si es HTML o Excel real)
+        # Lectura según extensión
         if extension == ".xls":
-            print("[INFO] Detectando tipo de archivo .xls...")
+            # Convertir .xls a .xlsx internamente para evitar problemas de encoding
+            print("[INFO] Detectado archivo .xls, convirtiendo a .xlsx internamente...")
             
-            # Leer contenido para detectar tipo
-            with open(archivo_entrada, 'rb') as f:
-                file_content = f.read()
-            
-            # Detectar si es HTML
-            header = file_content[:1024].decode('latin-1', errors='ignore').lower()
-            is_html = any(marker in header for marker in ['<html', '<!doctype', '<htm', '<table'])
-            
-            if is_html:
-                print("[INFO] Archivo .xls es HTML, extrayendo tabla...")
-                # Leer como HTML con manejo robusto de encoding
-                try:
-                    # Intentar primero con latin-1 que es más permisivo
-                    try:
-                        dfs = pd.read_html(io.BytesIO(file_content), header=0, encoding='latin-1')
-                    except:
-                        # Si falla, intentar con us-ascii o cp1252
-                        dfs = pd.read_html(io.BytesIO(file_content), header=0, encoding='cp1252')
-                except ImportError as ie:
-                    print(f"[ERROR] Falta dependencia para leer HTML: {ie}")
-                    print("[INFO] Instale: pip install lxml html5lib")
-                    raise
+            try:
+                # Leer con xlrd (motor antiguo para .xls)
+                df_temp = pd.read_excel(archivo_entrada, engine='xlrd', dtype={'Cliente': str, 'Documento': str})
                 
-                if not dfs:
-                    raise ValueError("No se encontraron tablas en el archivo HTML")
-                df = dfs[0]
+                # Convertir a .xlsx en memoria usando openpyxl
+                xlsx_buffer = io.BytesIO()
+                with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
+                    df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
                 
-                print(f"[INFO] Tabla HTML extraida: {len(df)} filas, {len(df.columns)} columnas")
+                # Leer el .xlsx generado
+                xlsx_buffer.seek(0)
+                df = pd.read_excel(xlsx_buffer, engine='openpyxl', dtype={'Cliente': str, 'Documento': str})
                 
-                # Limpiar datos de HTML
-                print("[INFO] Limpiando datos extraidos...")
+                print(f"[INFO] Conversión .xls -> .xlsx completada: {len(df)} filas, {len(df.columns)} columnas")
                 
-                # Eliminar columnas sin nombre
-                unnamed_cols = [col for col in df.columns if 'Unnamed' in str(col)]
-                if unnamed_cols:
-                    df = df.drop(columns=unnamed_cols)
-                    print(f"       Eliminadas {len(unnamed_cols)} columnas sin nombre")
-                
-                # Eliminar filas completamente vacías
-                filas_antes = len(df)
-                df = df.dropna(how='all')
-                filas_eliminadas = filas_antes - len(df)
-                if filas_eliminadas > 0:
-                    print(f"       Eliminadas {filas_eliminadas} filas vacias")
-                
-                # Eliminar header duplicado en primera fila
-                if len(df) > 0:
-                    headers = df.columns.astype(str).str.strip().tolist()
-                    first_row = df.iloc[0].astype(str).str.strip().tolist()
-                    if headers == first_row:
-                        df = df.iloc[1:].reset_index(drop=True)
-                        print(f"       Eliminado header duplicado en primera fila")
-                
-                # Convertir tipos de datos apropiadamente
-                for col in df.columns:
-                    if 'Cliente' in col or 'Documento' in col or 'Cod' in col:
-                        df[col] = df[col].astype(str)
-                
-                print(f"[OK] Limpieza completa: {len(df)} filas, {len(df.columns)} columnas")
-            else:
-                print("[INFO] Archivo .xls es Excel binario real")
-                # Leer como Excel binario
-                df = pd.read_excel(archivo_entrada, engine="xlrd", dtype={'Cliente': str, 'Documento': str})
+            except Exception as e:
+                print(f"[ERROR] Error convirtiendo .xls a .xlsx: {e}")
+                raise
                 
         elif extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Cliente': str, 'Documento': str})
@@ -108,37 +64,32 @@ def ejecutar(archivo_entrada, mes):
             raise ValueError("Formato no soportado.")
 
         print(f"\n[INFO] Datos cargados: {len(df)} filas, {len(df.columns)} columnas")
-        print(f"       Columnas disponibles: {list(df.columns)}")
+        
+        # LIMPIEZA MÍNIMA: solo eliminar header duplicado si existe
+        if len(df) > 0:
+            headers = df.columns.astype(str).tolist()
+            first_row = df.iloc[0].astype(str).tolist()
+            if first_row == headers:
+                df = df.iloc[1:].reset_index(drop=True)
+                print(f"[INFO] Primera fila era header duplicado, eliminada")
+        
+        # TRANSFORMACIÓN DE VENTAS (según txt original)
+        print(f"\n[INFO] Aplicando transformaciones...")
 
-        # Verificar que existen las columnas necesarias
+        # Filtrado de columnas (según txt original)
         columnas_requeridas = ['Cliente', 'Nombre', 'Razon Social', 'Documento', 'Barrio', 'Nombre Segmento',
                                'Producto', 'Nombre.1', 'Cant. pedida', 'Cant. devuelta', 'Cantidad neta',
                                'IVA', 'Venta - IVA', 'Marca', 'Sub marca', 'Linea', 'Sub linea',
                                'Categoria', 'Sub categoria', 'Negocio', 'Vendedor', 'Ciudad']
         
-        columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
-        if columnas_faltantes:
-            print(f"[WARN] Faltan columnas: {columnas_faltantes}")
-            # Intentar encontrar columnas similares
-            for col_faltante in columnas_faltantes:
-                similares = [c for c in df.columns if col_faltante.lower() in c.lower()]
-                if similares:
-                    print(f"       Columnas similares encontradas: {similares}")
-
-        # Filtrado de columnas (solo las que existan)
-        columnas_disponibles = [col for col in columnas_requeridas if col in df.columns]
-        df = df[columnas_disponibles].copy()
+        df = df[columnas_requeridas].copy()
+        print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
         
-        print(f"\n[INFO] Filtrando datos...")
-        print(f"       Filas antes de filtrar: {len(df)}")
+        # Filtrar vendedor (según txt original)
+        df = df[df['Vendedor'] != '99 - SERVICIOS']
+        print(f"[INFO] Filas filtradas (vendedor): {len(df)} filas")
 
-        # Filtrar vendedor si la columna existe
-        if 'Vendedor' in df.columns:
-            df = df[df['Vendedor'] != '99 - SERVICIOS']
-            print(f"       Filas despues de filtrar vendedor: {len(df)}")
-
-        # Reemplazos
-        print(f"\n[INFO] Aplicando correcciones...")
+        # Reemplazos (según txt original)
         reemplazos = {
             'Categoria': {
                 '10-Cafi': '10-Cafe',
@@ -176,49 +127,39 @@ def ejecutar(archivo_entrada, mes):
         }
 
         for columna, valores in reemplazos.items():
-            if columna in df.columns:
-                df[columna] = df[columna].replace(valores)
-
-        # Insertar mes
-        df.insert(1, 'Mes', mes)
-        print(f"[OK] Mes insertado: {mes}")
-
-        # División de columnas
-        if 'Vendedor' in df.columns:
-            df[['Cod. Asesor', 'Asesor']] = df['Vendedor'].str.split('-', n=1, expand=True)
-            df.drop(columns=['Vendedor'], inplace=True)
-            print(f"[OK] Columna Vendedor dividida en Cod. Asesor y Asesor")
+            df[columna] = df[columna].replace(valores)
         
-        if 'Ciudad' in df.columns:
-            split_result = df['Ciudad'].str.split('-', n=1, expand=True)
-            if split_result.shape[1] == 2:
-                df['Ciudad'] = split_result[1]  # Mantener solo el nombre
-                print(f"[OK] Columna Ciudad procesada")
+        print(f"[INFO] Reemplazos aplicados")
 
-        # Formatear SOLO la columna "Venta - IVA" con coma como separador decimal
-        # Las comillas se añadirán automáticamente al guardar el CSV
-        print(f"\n[INFO] Formateando columna Venta - IVA...")
-        if 'Venta - IVA' in df.columns:
-            # Convertir a numérico si no lo es
-            df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
-            # Dividir entre 100 para obtener los decimales correctos
-            # Formatear con coma como separador: 1512600 / 100 = 15126.00 -> 15126,00
-            df['Venta - IVA'] = df['Venta - IVA'].apply(
-                lambda x: f'{x/100:.2f}'.replace('.', ',') if pd.notna(x) else ''
-            )
-            print(f"[OK] Columna Venta - IVA formateada")
+        # Insertar mes (según txt original)
+        df.insert(1, 'Mes', mes)
+        print(f"[INFO] Mes insertado: {mes}")
 
-        # Guardar archivo con coma como separador (estándar CSV)
-        # QUOTE_MINIMAL (quoting=0) añade comillas solo donde es necesario (valores con comas)
-        # La columna Venta - IVA contiene comas, así que pandas añadirá las comillas automáticamente
-        print(f"\n[INFO] Guardando archivo transformado...")
+        # División de columnas (según txt original)
+        df[['Cod. Asesor', 'Asesor']] = df['Vendedor'].str.split('-', n=1, expand=True)
+        df.drop(columns=['Vendedor'], inplace=True)
+        
+        split_result = df['Ciudad'].str.split('-', n=1, expand=True)
+        if split_result.shape[1] == 2:
+            df['Ciudad'] = split_result[1]
+        df.drop(columns=['Cod. Ciudad'], inplace=True, errors='ignore')
+        
+        print(f"[INFO] Columnas divididas")
+
+        # Formatear SOLO la columna "Venta - IVA" con coma como separador decimal (según txt original)
+        # Convertir a numérico y formatear: 1512600 / 100 = 15126.00 -> 15126,00
+        df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
+        df['Venta - IVA'] = df['Venta - IVA'].apply(
+            lambda x: f'{x/100:.2f}'.replace('.', ',') if pd.notna(x) else ''
+        )
+        print(f"[INFO] Columna 'Venta - IVA' formateada")
+
+        # Guardar archivo
         df.to_csv(archivo_salida, index=False, encoding='utf-8-sig', sep=',', quoting=0)
         print(f"[OK] Archivo guardado: {archivo_salida}")
-        print(f"[OK] Datos finales: {len(df)} filas, {len(df.columns)} columnas")
+        print(f"[OK] Registros procesados: {len(df)}")
         
-        # Mostrar preview
-        print(f"\n[INFO] Preview de las primeras filas:")
-        print(df.head(3).to_string())
+        return True
 
     except Exception as e:
         print(f"\n[ERROR] Error durante el procesamiento: {e}")

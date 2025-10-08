@@ -10,6 +10,9 @@ import pandas as pd
 from datetime import datetime
 from config import Config
 
+# Importar scripts de transformación
+from scripts import clientes, venta_material, unir_ventas, exhibidores
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -49,153 +52,6 @@ def admin_required(f):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def is_html_file(file_content):
-    """Detecta si un archivo es realmente HTML disfrazado"""
-    # Lee los primeros 512 bytes para detectar HTML
-    header = file_content[:512].decode('latin-1', errors='ignore').lower()
-    return '<html' in header or '<!doctype html' in header or '<htm' in header
-
-def clean_dataframe_minimal(df):
-    """Limpieza mínima: solo elimina primera fila si es header duplicado"""
-    print(f"[INFO] Verificando headers duplicados en DataFrame...")
-    
-    if len(df) == 0:
-        return df
-    
-    # Eliminar SOLO la primera fila SI es exactamente igual a los headers
-    if len(df) > 0:
-        headers = df.columns.astype(str).tolist()
-        first_row = df.iloc[0].astype(str).tolist()
-        
-        if first_row == headers:
-            print(f"[INFO] Primera fila es header duplicado, eliminando")
-            df = df.iloc[1:].reset_index(drop=True)
-    
-    return df
-
-def read_excel_safe(file_obj, filename):
-    """Lee un archivo Excel/CSV de forma segura, detectando formato corrupto"""
-    try:
-        # Leer contenido
-        file_content = file_obj.read()
-        file_obj.seek(0)  # Resetear posición
-        
-        # Detectar si es HTML disfrazado de .xls
-        if filename.endswith('.xls') and is_html_file(file_content):
-            # Es un archivo HTML, intentar leerlo con pandas usando read_html
-            print(f"[INFO] Archivo .xls detectado como HTML, procesando como tabla HTML...")
-            try:
-                # Decodificar el contenido completo primero para evitar problemas de lectura parcial
-                print(f"[INFO] Decodificando contenido HTML ({len(file_content)} bytes)...")
-                try:
-                    content_decoded = file_content.decode('latin-1', errors='ignore')
-                except:
-                    content_decoded = file_content.decode('cp1252', errors='ignore')
-                
-                print(f"[INFO] Contenido decodificado: {len(content_decoded)} caracteres")
-                
-                # Leer tabla HTML desde el contenido decodificado
-                dfs = pd.read_html(io.StringIO(content_decoded), header=0)
-                
-                if len(dfs) == 0:
-                    raise ValueError('No se encontraron tablas en el archivo HTML')
-                
-                # Usar la primera tabla encontrada y limpiar
-                df = dfs[0]
-                print(f"[INFO] Tabla HTML extraída: {len(df)} filas, {len(df.columns)} columnas")
-                df = clean_dataframe_minimal(df)
-                
-                return df
-                
-            except Exception as e:
-                raise ValueError(f'No se pudo leer el archivo HTML como tabla: {str(e)}')
-        
-        # Intentar leer según extensión (archivos Excel reales)
-        if filename.endswith('.xlsx'):
-            df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl')
-            return clean_dataframe_minimal(df)
-            
-        elif filename.endswith('.xls'):
-            # Convertir .xls a .xlsx internamente para evitar problemas de codificación
-            print(f"[INFO] Detectado archivo .xls, convirtiendo a .xlsx internamente...")
-            
-            try:
-                # Paso 1: Leer el .xls con xlrd (Excel 97-2003)
-                print(f"[INFO] Leyendo archivo Excel 97-2003 (.xls)...")
-                df_temp = pd.read_excel(io.BytesIO(file_content), engine='xlrd')
-                print(f"[INFO] Archivo .xls leído: {len(df_temp)} filas, {len(df_temp.columns)} columnas")
-                
-                # Paso 2: Convertir a .xlsx en memoria usando openpyxl
-                print(f"[INFO] Convirtiendo a formato .xlsx...")
-                xlsx_buffer = io.BytesIO()
-                with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
-                    df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
-                xlsx_buffer.seek(0)
-                
-                # Paso 3: Leer el .xlsx recién creado (esto evita problemas de encoding)
-                df = pd.read_excel(xlsx_buffer, engine='openpyxl')
-                print(f"[INFO] Conversión .xls -> .xlsx completada exitosamente")
-                
-                # Limpiar DataFrame (solo headers duplicados)
-                return clean_dataframe_minimal(df)
-                
-            except Exception as e:
-                # Si falla, intentar como HTML (fallback para archivos corruptos)
-                if 'Expected BOF record' in str(e) or 'Unsupported format' in str(e):
-                    print(f"[INFO] Archivo .xls no es formato binario, intentando como HTML...")
-                    try:
-                        # Decodificar el contenido completo primero
-                        try:
-                            content_decoded = file_content.decode('latin-1', errors='ignore')
-                        except:
-                            content_decoded = file_content.decode('cp1252', errors='ignore')
-                        
-                        dfs = pd.read_html(io.StringIO(content_decoded), header=0)
-                    except:
-                        raise ValueError('No se pudo leer el archivo como HTML')                    
-                    if len(dfs) == 0:
-                        raise ValueError('No se encontraron tablas en el archivo')
-                    
-                    df = dfs[0]
-                    df = clean_dataframe_minimal(df)
-                    
-                    return df
-                raise
-        else:
-            # CSV - intentar con diferentes encodings y separadores
-            print(f"[INFO] Leyendo archivo CSV...")
-            try:
-                # Intentar primero con UTF-8
-                df = pd.read_csv(io.BytesIO(file_content), encoding='utf-8')
-                print(f"[INFO] CSV leído con UTF-8")
-            except UnicodeDecodeError:
-                try:
-                    # Si falla, intentar con latin-1
-                    df = pd.read_csv(io.BytesIO(file_content), encoding='latin-1')
-                    print(f"[INFO] CSV leído con latin-1")
-                except:
-                    # Último intento con cp1252
-                    df = pd.read_csv(io.BytesIO(file_content), encoding='cp1252')
-                    print(f"[INFO] CSV leído con cp1252")
-            
-            # Detectar separador si es necesario
-            if len(df.columns) == 1:
-                # Probablemente el separador no es coma, intentar con pipe
-                file_obj = io.BytesIO(file_content)
-                try:
-                    df = pd.read_csv(file_obj, sep='|', encoding='latin-1')
-                    print(f"[INFO] CSV leído con separador '|'")
-                except:
-                    # Intentar detectar automáticamente
-                    file_obj = io.BytesIO(file_content)
-                    df = pd.read_csv(file_obj, sep=None, engine='python', encoding='latin-1')
-                    print(f"[INFO] CSV leído con separador auto-detectado")
-            
-            return clean_dataframe_minimal(df)
-            
-    except Exception as e:
-        raise
 
 def save_to_cache(user_id, filename, dataframe):
     """Guarda un DataFrame en el cache del usuario (filesystem)"""
@@ -254,270 +110,6 @@ def get_from_cache(user_id):
     except Exception as e:
         print(f"[ERROR] Error reading cache for user {user_id}: {e}")
         return None
-
-def transformar_ventas(df, mes=''):
-    """
-    Aplica todas las transformaciones necesarias al DataFrame de ventas
-    """
-    print(f"[INFO] Iniciando transformacion de ventas con mes: {mes}")
-    print(f"[INFO] DataFrame inicial: {len(df)} filas, {len(df.columns)} columnas")
-    
-    # Verificar que existen las columnas necesarias
-    columnas_requeridas = ['Cliente', 'Nombre', 'Razon Social', 'Documento', 'Barrio', 'Nombre Segmento',
-                           'Producto', 'Nombre.1', 'Cant. pedida', 'Cant. devuelta', 'Cantidad neta',
-                           'IVA', 'Venta - IVA', 'Marca', 'Sub marca', 'Linea', 'Sub linea',
-                           'Categoria', 'Sub categoria', 'Negocio', 'Vendedor', 'Ciudad']
-    
-    # Verificar columnas faltantes
-    columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
-    if columnas_faltantes:
-        print(f"[WARN] Faltan columnas: {columnas_faltantes}")
-        # Usar solo las columnas disponibles
-        columnas_disponibles = [col for col in columnas_requeridas if col in df.columns]
-        df = df[columnas_disponibles].copy()
-    else:
-        # Filtrado de columnas
-        df = df[columnas_requeridas].copy()
-    
-    print(f"[INFO] Columnas filtradas: {len(df.columns)} columnas")
-    
-    # Filtrar vendedor si existe la columna
-    if 'Vendedor' in df.columns:
-        filas_antes = len(df)
-        df = df[df['Vendedor'] != '99 - SERVICIOS']
-        print(f"[INFO] Filas filtradas (vendedor): {filas_antes} -> {len(df)}")
-    
-    # Reemplazos de valores
-    reemplazos = {
-        'Categoria': {
-            '10-Cafi': '10-Cafe',
-            '51-Ti e infusiones': '51-Te e infusiones',
-            '61-Equipos Preparacisn': '61-Equipos Preparacion',
-            '06-Champiqones': '06-Champinones',
-            '09-Bebidas dechocolate': '09-Bebidas de chocolate',
-        },
-        'Nombre Segmento': {
-            'Reposicisn': 'Reposicion',
-            'AU Multimisisn': 'AU Multimision',
-            'Servicios de Alimentacisn': 'Servicios de Alimentacion'
-        },
-        'Marca': {
-            '026-Colcafi': '026-Colcafe',
-            '001-Zenz': '001-Zenu',
-            '351-Genirico otros distibuidos': '351-Generico otros distribuidos',
-            '373-Binet': '373-Benet'
-        },
-        'Sub marca': {
-            '01-Colcafi': '01-Colcafe',
-            '02-Zenz': '02-Zenu',
-            '01-Genirico otros distibuidos': '01-Generico otros distribuidos',
-            '01-Binet': '01-Benet',
-            '02-Zenz': '01-Zenu',
-            '10-Lechey calcio': '10-Leche y calcio',
-            '04-Lechecon almendras': '04-Leche con almendras',
-            '12-Quesoy Mantequilla': '12-Queso y Mantequilla',
-            '08-Gool': '08-Gol'
-        },
-        'Negocio': {
-            '04-Cafi': '04-Cafe',
-            '23-Nutricisn Experta': '23-Nutricion Experta'
-        }
-    }
-    
-    for columna, valores in reemplazos.items():
-        if columna in df.columns:
-            df[columna] = df[columna].replace(valores)
-    
-    print(f"[INFO] Reemplazos aplicados")
-    
-    # Insertar mes
-    if mes:
-        df.insert(1, 'Mes', mes)
-        print(f"[INFO] Mes insertado: {mes}")
-    
-    # División de columnas
-    if 'Vendedor' in df.columns:
-        df[['Cod. Asesor', 'Asesor']] = df['Vendedor'].str.split('-', n=1, expand=True)
-        df.drop(columns=['Vendedor'], inplace=True)
-        print(f"[INFO] Columna Vendedor dividida")
-    
-    if 'Ciudad' in df.columns:
-        split_result = df['Ciudad'].str.split('-', n=1, expand=True)
-        if split_result.shape[1] == 2:
-            df['Cod. Ciudad'] = split_result[0]
-            df['Ciudad'] = split_result[1]
-            # Eliminar Cod. Ciudad
-            df.drop(columns=['Cod. Ciudad'], inplace=True)
-            print(f"[INFO] Columna Ciudad procesada")
-    
-    # Formatear SOLO la columna "Venta - IVA" con coma como separador decimal
-    # Las demás columnas numéricas se mantienen como números enteros
-    # Las comillas se añadirán después al guardar el CSV
-    if 'Venta - IVA' in df.columns:
-        # Convertir a numérico si no lo es
-        df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
-        # Dividir entre 100 para obtener los decimales correctos
-        # Formatear con coma como separador: 1512600 / 100 = 15126.00 -> 15126,00
-        df['Venta - IVA'] = df['Venta - IVA'].apply(
-            lambda x: f'{x/100:.2f}'.replace('.', ',') if pd.notna(x) else ''
-        )
-        print(f"[INFO] Columna 'Venta - IVA' formateada con coma decimal")
-    
-    print(f"[INFO] Transformacion completa: {len(df)} filas, {len(df.columns)} columnas")
-    
-    return df
-
-def transformar_clientes(df):
-    """
-    Aplica transformaciones al DataFrame de clientes
-    Maneja tanto el formato de 17 columnas como el de 29 columnas
-    """
-    print(f"[INFO] Iniciando transformacion de clientes")
-    print(f"[INFO] DataFrame inicial: {len(df)} filas, {len(df.columns)} columnas")
-    
-    # Detectar qué formato tiene el archivo (17 o 29 columnas)
-    if 'Cod AC' in df.columns:
-        # Formato completo de 29 columnas
-        print(f"[INFO] Detectado formato completo (29 columnas)")
-        columnas_esperadas = [
-            'Cod AC', 'Codigo Ecom', 'Sucursal', 'Nombre Cliente', 'Documento',
-            'Ra. Social', 'Direccion', 'Nombre Neg', 'Telefono', 'Cod Dpto', 'Dpto',
-            'Cod Ciudad', 'Ciudad', 'Barrio', 'Segmento', 'Estado', 'Fecha',
-            'Creacion', 'Coordenada Y', 'Coordenada X', 'Exhibidor', 'Cod.Asesor',
-            'Asesor', 'Dias de visita', 'Distrito', 'Region', 'Coordenadas Gis',
-            'Codigo CUP', 'Socios Nutresa'
-        ]
-    else:
-        # Formato reducido de 17 columnas
-        print(f"[INFO] Detectado formato reducido (17 columnas)")
-        columnas_esperadas = [
-            'Codigo Ecom', 'Sucursal', 'Documento', 'Ra. Social', 'Nombre Neg',
-            'Dpto', 'Ciudad', 'Barrio', 'Segmento', 'Fecha',
-            'Coordenada Y', 'Coordenada X', 'Exhibidor', 'Cod.Asesor',
-            'Asesor', 'Coordenadas Gis', 'Socios Nutresa'
-        ]
-    
-    # Verificar qué columnas existen
-    columnas_disponibles = [col for col in columnas_esperadas if col in df.columns]
-    columnas_faltantes = [col for col in columnas_esperadas if col not in df.columns]
-    
-    if columnas_faltantes:
-        print(f"[WARN] Columnas faltantes (se agregarán vacías): {columnas_faltantes}")
-        # Agregar columnas faltantes con valores vacíos
-        for col in columnas_faltantes:
-            df[col] = ''
-    
-    # Seleccionar solo las columnas esperadas
-    df = df[columnas_esperadas].copy()
-    
-    print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
-    
-    # Reemplazar NaN y 'nan' por cadenas vacías
-    df = df.fillna('')
-    df = df.replace('nan', '', regex=False)
-    
-    # Aplicar correcciones de ciudades y segmentos
-    if 'Ciudad' in df.columns:
-        df['Ciudad'] = df['Ciudad'].replace({'MOQITOS': 'MONITOS'})
-    
-    if 'Segmento' in df.columns:
-        df['Segmento'] = df['Segmento'].replace({
-            'Reposición': 'Reposicion',  # Con tilde también
-            'Reposicisn': 'Reposicion',
-            'AU Multimisisn': 'AU Multimision',
-            'Servicios de Alimentacisn': 'Servicios de Alimentacion',
-            'Centros de diversisn': 'Centros de diversion'
-        })
-    
-    print(f"[INFO] Correcciones aplicadas")
-    
-    # Conversión de tipos (convertir NaN a string vacío primero)
-    if 'Codigo Ecom' in df.columns:
-        df['Codigo Ecom'] = df['Codigo Ecom'].astype(str).replace('nan', '')
-    if 'Documento' in df.columns:
-        df['Documento'] = df['Documento'].astype(str).replace('nan', '')
-    if 'Exhibidor' in df.columns:
-        df['Exhibidor'] = df['Exhibidor'].astype(str).replace('nan', '')
-    if 'Cod.Asesor' in df.columns:
-        df['Cod.Asesor'] = df['Cod.Asesor'].astype(str).replace('nan', '')
-    
-    # Formatear fechas (solo si no están vacías)
-    for col_fecha in ['Fecha', 'Creacion']:
-        if col_fecha in df.columns:
-            df[col_fecha] = df[col_fecha].replace('', pd.NaT)
-            df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
-            df[col_fecha] = df[col_fecha].dt.strftime('%d-%m-%Y')
-            df[col_fecha] = df[col_fecha].fillna('')
-    
-    print(f"[INFO] Conversiones de tipo aplicadas")
-    print(f"[INFO] Transformacion completa: {len(df)} filas, {len(df.columns)} columnas")
-    
-    return df
-
-def transformar_exhibidores(df):
-    """
-    Aplica transformaciones al DataFrame de exhibidores
-    Filtra, limpia y categoriza los exhibidores
-    """
-    print(f"[INFO] Iniciando transformacion de exhibidores")
-    print(f"[INFO] DataFrame inicial: {len(df)} filas, {len(df.columns)} columnas")
-    
-    # Reemplazar NaN y 'nan' por cadenas vacías
-    df = df.fillna('')
-    df = df.replace('nan', '', regex=False)
-    
-    # Conversión de tipos
-    if 'Numero' in df.columns:
-        df['Numero'] = df['Numero'].astype(str)
-    if 'Cod. Cliente' in df.columns:
-        df['Cod. Cliente'] = df['Cod. Cliente'].astype(str)
-        df['Cod. Cliente'] = df['Cod. Cliente'].str.replace('.0', '', regex=False)
-    if 'Num. Comodato' in df.columns:
-        df['Num. Comodato'] = df['Num. Comodato'].astype(str)
-        df['Num. Comodato'] = df['Num. Comodato'].str.replace(';', '', regex=False)
-    
-    print(f"[INFO] Conversiones de tipo aplicadas")
-    
-    # Eliminar columna sin nombre si existe
-    if 'Unnamed: 12' in df.columns:
-        df = df.drop(columns=['Unnamed: 12'])
-        print(f"[INFO] Columna 'Unnamed: 12' eliminada")
-    
-    # Filtrar por Estado = 'A' (Activo)
-    if 'Estado' in df.columns:
-        filas_antes = len(df)
-        df = df[df['Estado'] == 'A']
-        print(f"[INFO] Filtrado por Estado='A': {filas_antes} -> {len(df)} filas")
-    
-    # Filtrar tipo específico
-    if 'Tipo' in df.columns:
-        filas_antes = len(df)
-        df = df[df['Tipo'] != '40089999-MUEBLE SNACKERO ABARROTERO MOSTRADOR']
-        print(f"[INFO] Filtrado tipo no deseado: {filas_antes} -> {len(df)} filas")
-    
-    # Crear columna Categoria
-    if 'Tipo' in df.columns:
-        df['Categoria'] = df['Tipo'].apply(lambda x: 'Nevera' if 'NEVERA' in str(x) else 'Snackero')
-        
-        # Casos especiales que son Snackero aunque tengan NEVERA en el nombre
-        snackero_con_nevera = [
-            '40089141-MUEBLE SNACKERO PISO GRANDE CON NEVERA',
-            '40089142-MUEBLE SNACKERO PISO CON NEVERA'
-        ]
-        df.loc[df['Tipo'].isin(snackero_con_nevera), 'Categoria'] = 'Snackero'
-        print(f"[INFO] Columna 'Categoria' creada")
-    
-    # Eliminar duplicados por Numero
-    if 'Numero' in df.columns:
-        filas_antes = len(df)
-        df = df.drop_duplicates(subset=['Numero'], keep='first')
-        duplicados_eliminados = filas_antes - len(df)
-        if duplicados_eliminados > 0:
-            print(f"[INFO] Duplicados eliminados: {duplicados_eliminados}")
-    
-    print(f"[INFO] Transformacion completa: {len(df)} filas, {len(df.columns)} columnas")
-    
-    return df
 
 # RUTAS DE AUTENTICACIÓN
 @app.route('/favicon.ico')
@@ -731,12 +323,25 @@ def procesar_archivo(tipo):
                 return jsonify({'success': False, 'error': 'Tipo de archivo no válido'}), 400
             
             try:
-                # Leer archivos en memoria
-                df_acum = read_excel_safe(file_acum, file_acum.filename)
-                df_mes = read_excel_safe(file_mes, file_mes.filename)
+                # Guardar archivos temporalmente para procesarlos con el script
+                temp_dir = tempfile.mkdtemp()
+                temp_acum = os.path.join(temp_dir, secure_filename(file_acum.filename))
+                temp_mes = os.path.join(temp_dir, secure_filename(file_mes.filename))
                 
-                # Procesar: unir DataFrames
-                df_resultado = pd.concat([df_acum, df_mes], ignore_index=True)
+                file_acum.save(temp_acum)
+                file_mes.save(temp_mes)
+                
+                # Procesar con el script de unir_ventas
+                print(f"[INFO] Procesando unión de ventas usando script")
+                unir_ventas.ejecutar(temp_acum, temp_mes, carpeta_salida=temp_dir)
+                
+                # Leer resultado
+                resultado_path = os.path.join(temp_dir, 'ventas_acum.csv')
+                df_resultado = pd.read_csv(resultado_path, encoding='utf-8-sig')
+                
+                # Limpiar archivos temporales
+                import shutil
+                shutil.rmtree(temp_dir)
                 
                 # Guardar en cache
                 save_to_cache(user_id, 'ventas_acum.csv', df_resultado)
@@ -750,6 +355,8 @@ def procesar_archivo(tipo):
             except ValueError as e:
                 return jsonify({'success': False, 'error': f'Error al leer archivos: {str(e)}'}), 400
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 return jsonify({'success': False, 'error': f'Error al procesar: {str(e)}'}), 500
         
         # Para archivos individuales
@@ -767,37 +374,59 @@ def procesar_archivo(tipo):
         try:
             print(f"[INFO] Procesando archivo {file.filename} tipo '{tipo}' para user_id: {user_id}")
             
-            # Leer archivo en memoria
-            df = read_excel_safe(file, file.filename)
+            # Guardar archivo temporal para procesarlo con los scripts
+            temp_dir = tempfile.mkdtemp()
+            temp_file = os.path.join(temp_dir, secure_filename(file.filename))
+            file.save(temp_file)
             
-            print(f"[INFO] Archivo leído: {len(df)} filas, {len(df.columns)} columnas")
-            
-            # Procesar según el tipo
+            # Procesar según el tipo usando los scripts
             if tipo == 'clientes':
-                # Aplicar transformación para clientes
-                print(f"[INFO] Procesando maestra de clientes")
-                df_procesado = transformar_clientes(df)
+                print(f"[INFO] Procesando maestra de clientes usando script")
+                clientes.ejecutar(temp_file, carpeta_salida=temp_dir)
                 output_filename = 'maestra_clientes.csv'
                 
             elif tipo == 'venta_material':
                 mes = request.form.get('mes', '')
-                print(f"[INFO] Procesando venta_material con mes: {mes}")
-                # Aplicar transformaciones completas
-                df_procesado = transformar_ventas(df, mes)
+                print(f"[INFO] Procesando venta_material con mes: {mes} usando script")
+                venta_material.ejecutar(temp_file, mes)
+                # El script guarda en su propia carpeta, necesitamos leer de ahí
+                # Primero intentar la carpeta local del script
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                posible_salida = os.path.join(script_dir, 'transformados', 'ventas_mes.csv')
+                if os.path.exists(posible_salida):
+                    temp_dir = os.path.join(script_dir, 'transformados')
                 output_filename = 'ventas_mes.csv'
             
             elif tipo == 'exhibidores':
-                print(f"[INFO] Procesando exhibidores")
-                # Aplicar transformaciones de exhibidores
-                df_procesado = transformar_exhibidores(df)
-                output_filename = 'Exhibidores.csv'
+                print(f"[INFO] Procesando exhibidores usando script")
+                exhibidores.ejecutar(temp_file, carpeta_salida=temp_dir)
+                output_filename = 'Exhibidores.xlsx'
+                # Convertir a CSV para consistencia
+                xlsx_path = os.path.join(temp_dir, output_filename)
+                if os.path.exists(xlsx_path):
+                    df_temp = pd.read_excel(xlsx_path)
+                    csv_path = os.path.join(temp_dir, 'Exhibidores.csv')
+                    df_temp.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                    output_filename = 'Exhibidores.csv'
             
             else:
                 return jsonify({'success': False, 'error': f'Tipo de procesamiento "{tipo}" no reconocido'}), 400
             
+            # Leer resultado procesado
+            resultado_path = os.path.join(temp_dir, output_filename)
+            if output_filename.endswith('.csv'):
+                df_procesado = pd.read_csv(resultado_path, encoding='utf-8-sig')
+            else:
+                df_procesado = pd.read_excel(resultado_path)
+            
             print(f"[INFO] Guardando en cache: {output_filename}")
             # Guardar en cache
             save_to_cache(user_id, output_filename, df_procesado)
+            
+            # Limpiar archivos temporales
+            import shutil
+            if os.path.exists(temp_file):
+                shutil.rmtree(os.path.dirname(temp_file), ignore_errors=True)
             
             return jsonify({
                 'success': True, 
