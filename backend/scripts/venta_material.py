@@ -112,6 +112,11 @@ def ejecutar(archivo_entrada, mes):
         df = df[columnas_requeridas].copy()
         print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
         
+        # Convertir columnas de texto a string antes de hacer operaciones (evita errores con HTML)
+        for col in df.columns:
+            if col in df.columns and df[col].dtype == 'object':
+                df[col] = df[col].astype(str)
+        
         # Filtrar vendedor (según txt original)
         df = df[df['Vendedor'] != '99 - SERVICIOS']
         print(f"[INFO] Filas filtradas (vendedor): {len(df)} filas")

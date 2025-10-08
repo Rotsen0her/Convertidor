@@ -91,6 +91,11 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         # TRANSFORMACIÓN DE EXHIBIDORES (según txt original)
         print(f"\n[INFO] Aplicando transformaciones...")
         
+        # Convertir columnas clave a string antes de hacer operaciones (evita errores con HTML)
+        for col in ['Numero', 'Cod. Cliente', 'Num. Comodato', 'Estado', 'Tipo']:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+        
         # Conversión de tipos (según txt original)
         df['Numero'] = df['Numero'].astype(str)
         df['Cod. Cliente'] = df['Cod. Cliente'].astype(str)

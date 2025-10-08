@@ -102,6 +102,11 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
         
+        # Convertir columnas de texto a string antes de hacer operaciones (evita errores con HTML)
+        for col in ['Ciudad', 'Segmento']:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+        
         # Correcciones (según txt original)
         df['Ciudad'] = df['Ciudad'].replace({'MOQITOS': 'MONITOS'})
         df['Segmento'] = df['Segmento'].replace({
@@ -118,8 +123,13 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         df['Documento'] = df['Documento'].astype(str)
         df['Exhibidor'] = df['Exhibidor'].astype(str)
         df['Cod.Asesor'] = df['Cod.Asesor'].astype(str)
+        
+        # Formatear fecha (convertir a string primero si no lo es)
+        df['Fecha'] = df['Fecha'].astype(str)
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
         df['Fecha'] = df['Fecha'].dt.strftime('%d-%m-%Y')
+        # Reemplazar NaT por cadena vacía
+        df['Fecha'] = df['Fecha'].fillna('')
         
         print(f"[INFO] Conversiones de tipo aplicadas")
         
