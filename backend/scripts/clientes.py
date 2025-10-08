@@ -20,27 +20,54 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         # Lectura según extensión
         if extension == ".xls":
-            # Convertir .xls a .xlsx internamente para evitar problemas de encoding
-            print("[INFO] Detectado archivo .xls, convirtiendo a .xlsx internamente...")
+            # Detectar si es HTML o Excel binario real
+            print("[INFO] Detectando tipo de archivo .xls...")
             
-            try:
-                # Leer con xlrd (motor antiguo para .xls)
-                df_temp = pd.read_excel(archivo_entrada, engine='xlrd')
+            with open(archivo_entrada, 'rb') as f:
+                file_content = f.read()
+            
+            # Detectar si es HTML
+            header = file_content[:1024].decode('latin-1', errors='ignore').lower()
+            is_html = any(marker in header for marker in ['<html', '<!doctype', '<htm', '<table'])
+            
+            if is_html:
+                print("[INFO] Archivo .xls es HTML, extrayendo tabla...")
+                try:
+                    # Leer como HTML
+                    dfs = pd.read_html(io.BytesIO(file_content), header=0)
+                    
+                    if not dfs:
+                        raise ValueError("No se encontraron tablas en el archivo HTML")
+                    
+                    df = dfs[0]
+                    print(f"[INFO] Tabla HTML extraída: {len(df)} filas, {len(df.columns)} columnas")
+                    
+                except ImportError as ie:
+                    print(f"[ERROR] Falta dependencia para leer HTML: {ie}")
+                    print("[INFO] Instale: pip install lxml html5lib")
+                    raise
+            else:
+                # Es Excel binario real, convertir .xls a .xlsx
+                print("[INFO] Archivo .xls es Excel binario, convirtiendo a .xlsx internamente...")
                 
-                # Convertir a .xlsx en memoria usando openpyxl
-                xlsx_buffer = io.BytesIO()
-                with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
-                    df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
-                
-                # Leer el .xlsx generado
-                xlsx_buffer.seek(0)
-                df = pd.read_excel(xlsx_buffer, engine='openpyxl')
-                
-                print(f"[INFO] Conversión .xls -> .xlsx completada: {len(df)} filas, {len(df.columns)} columnas")
-                
-            except Exception as e:
-                print(f"[ERROR] Error convirtiendo .xls a .xlsx: {e}")
-                raise
+                try:
+                    # Leer con xlrd (motor antiguo para .xls)
+                    df_temp = pd.read_excel(archivo_entrada, engine='xlrd')
+                    
+                    # Convertir a .xlsx en memoria usando openpyxl
+                    xlsx_buffer = io.BytesIO()
+                    with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
+                        df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
+                    
+                    # Leer el .xlsx generado
+                    xlsx_buffer.seek(0)
+                    df = pd.read_excel(xlsx_buffer, engine='openpyxl')
+                    
+                    print(f"[INFO] Conversión .xls -> .xlsx completada: {len(df)} filas, {len(df.columns)} columnas")
+                    
+                except Exception as e:
+                    print(f"[ERROR] Error convirtiendo .xls a .xlsx: {e}")
+                    raise
                 
         elif extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl")
