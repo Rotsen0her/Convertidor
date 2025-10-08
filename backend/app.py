@@ -56,45 +56,14 @@ def is_html_file(file_content):
     header = file_content[:512].decode('latin-1', errors='ignore').lower()
     return '<html' in header or '<!doctype html' in header or '<htm' in header
 
-def clean_dataframe(df):
-    """Limpia un DataFrame eliminando filas vacías, duplicados y headers repetidos"""
-    print(f"[INFO] Limpiando DataFrame: {len(df)} filas iniciales, {len(df.columns)} columnas iniciales")
+def clean_dataframe_minimal(df):
+    """Limpieza mínima: solo elimina primera fila si es header duplicado"""
+    print(f"[INFO] Verificando headers duplicados en DataFrame...")
     
     if len(df) == 0:
-        print(f"[WARNING] DataFrame vacío, retornando sin cambios")
         return df
     
-    # 1. Eliminar columnas completamente sin nombre o Unnamed
-    unnamed_cols = [col for col in df.columns if 'Unnamed' in str(col)]
-    if unnamed_cols:
-        print(f"[INFO] Eliminando {len(unnamed_cols)} columnas sin nombre")
-        df = df.drop(columns=unnamed_cols)
-    
-    # 2. Eliminar columnas completamente vacías
-    initial_cols = len(df.columns)
-    df = df.dropna(axis=1, how='all')
-    if len(df.columns) < initial_cols:
-        print(f"[INFO] Eliminadas {initial_cols - len(df.columns)} columnas completamente vacías")
-    
-    # 3. Eliminar filas completamente vacías
-    initial_rows = len(df)
-    df = df.dropna(axis=0, how='all')
-    if len(df) < initial_rows:
-        print(f"[INFO] Eliminadas {initial_rows - len(df)} filas completamente vacías")
-    
-    if len(df) == 0:
-        print(f"[WARNING] DataFrame quedó vacío después de eliminar filas/columnas vacías")
-        return df
-    
-    # 4. Buscar la última fila con datos reales
-    last_valid = df.last_valid_index()
-    if last_valid is not None and last_valid < len(df) - 1:
-        rows_trimmed = len(df) - last_valid - 1
-        df = df.loc[:last_valid]
-        print(f"[INFO] Recortadas {rows_trimmed} filas vacías al final")
-    
-    # 5. Eliminar SOLO la primera fila SI es exactamente igual a los headers
-    # (No revisar todas las filas, solo la primera)
+    # Eliminar SOLO la primera fila SI es exactamente igual a los headers
     if len(df) > 0:
         headers = df.columns.astype(str).tolist()
         first_row = df.iloc[0].astype(str).tolist()
@@ -102,32 +71,6 @@ def clean_dataframe(df):
         if first_row == headers:
             print(f"[INFO] Primera fila es header duplicado, eliminando")
             df = df.iloc[1:].reset_index(drop=True)
-    
-
-    # 7. Resetear índice
-    df = df.reset_index(drop=True)
-    
-    # 8. Limpiar caracteres mal codificados comunes (UTF-8 mal interpretado como Latin-1)
-    print(f"[INFO] Limpiando caracteres mal codificados...")
-    for col in df.columns:
-        if df[col].dtype == 'object':  # Solo columnas de texto
-            df[col] = df[col].astype(str).str.replace('Ã', 'A', regex=False)
-            df[col] = df[col].str.replace('Ã', 'O', regex=False)
-            df[col] = df[col].str.replace('Ã', 'I', regex=False)
-            df[col] = df[col].str.replace('Ã±', 'ñ', regex=False)
-            df[col] = df[col].str.replace('Ã³', 'ó', regex=False)
-            df[col] = df[col].str.replace('Ã­', 'í', regex=False)
-            df[col] = df[col].str.replace('Ã¡', 'á', regex=False)
-            df[col] = df[col].str.replace('Ã©', 'é', regex=False)
-            df[col] = df[col].str.replace('Ãº', 'ú', regex=False)
-            df[col] = df[col].str.replace('Ã', 'Ñ', regex=False)
-            df[col] = df[col].str.replace('Ã"', 'Ó', regex=False)
-            df[col] = df[col].str.replace('Ã', 'Í', regex=False)
-            df[col] = df[col].str.replace('Ã', 'Á', regex=False)
-            df[col] = df[col].str.replace('Ã‰', 'É', regex=False)
-            df[col] = df[col].str.replace('Ãš', 'Ú', regex=False)
-    
-    print(f"[INFO] DataFrame limpiado: {len(df)} filas finales, {len(df.columns)} columnas finales")
     
     return df
 
@@ -161,7 +104,7 @@ def read_excel_safe(file_obj, filename):
                 # Usar la primera tabla encontrada y limpiar
                 df = dfs[0]
                 print(f"[INFO] Tabla HTML extraída: {len(df)} filas, {len(df.columns)} columnas")
-                df = clean_dataframe(df)
+                df = clean_dataframe_minimal(df)
                 
                 return df
                 
@@ -171,25 +114,34 @@ def read_excel_safe(file_obj, filename):
         # Intentar leer según extensión (archivos Excel reales)
         if filename.endswith('.xlsx'):
             df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl')
-            return clean_dataframe(df)
+            return clean_dataframe_minimal(df)
             
         elif filename.endswith('.xls'):
-            # Intentar primero como Excel binario real (Excel 97-2003)
+            # Convertir .xls a .xlsx internamente para evitar problemas de codificación
+            print(f"[INFO] Detectado archivo .xls, convirtiendo a .xlsx internamente...")
+            
             try:
+                # Paso 1: Leer el .xls con xlrd (Excel 97-2003)
                 print(f"[INFO] Leyendo archivo Excel 97-2003 (.xls)...")
-                # Leer con xlrd
-                df = pd.read_excel(
-                    io.BytesIO(file_content), 
-                    engine='xlrd'
-                )
+                df_temp = pd.read_excel(io.BytesIO(file_content), engine='xlrd')
+                print(f"[INFO] Archivo .xls leído: {len(df_temp)} filas, {len(df_temp.columns)} columnas")
                 
-                print(f"[INFO] Excel 97-2003 leído: {len(df)} filas, {len(df.columns)} columnas")
+                # Paso 2: Convertir a .xlsx en memoria usando openpyxl
+                print(f"[INFO] Convirtiendo a formato .xlsx...")
+                xlsx_buffer = io.BytesIO()
+                with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
+                    df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
+                xlsx_buffer.seek(0)
                 
-                # Limpiar SOLO una vez
-                return clean_dataframe(df)
+                # Paso 3: Leer el .xlsx recién creado (esto evita problemas de encoding)
+                df = pd.read_excel(xlsx_buffer, engine='openpyxl')
+                print(f"[INFO] Conversión .xls -> .xlsx completada exitosamente")
+                
+                # Limpiar DataFrame (solo headers duplicados)
+                return clean_dataframe_minimal(df)
                 
             except Exception as e:
-                # Si falla, intentar como HTML
+                # Si falla, intentar como HTML (fallback para archivos corruptos)
                 if 'Expected BOF record' in str(e) or 'Unsupported format' in str(e):
                     print(f"[INFO] Archivo .xls no es formato binario, intentando como HTML...")
                     try:
@@ -206,7 +158,7 @@ def read_excel_safe(file_obj, filename):
                         raise ValueError('No se encontraron tablas en el archivo')
                     
                     df = dfs[0]
-                    df = clean_dataframe(df)
+                    df = clean_dataframe_minimal(df)
                     
                     return df
                 raise
@@ -240,15 +192,15 @@ def read_excel_safe(file_obj, filename):
                     df = pd.read_csv(file_obj, sep=None, engine='python', encoding='latin-1')
                     print(f"[INFO] CSV leído con separador auto-detectado")
             
-            return clean_dataframe(df)
+            return clean_dataframe_minimal(df)
             
     except Exception as e:
         raise
 
 def save_to_cache(user_id, filename, dataframe):
     """Guarda un DataFrame en el cache del usuario (filesystem)"""
-    # NO limpiar aquí - ya se limpió en read_excel_safe
-    # Solo verificar que no esté vacío
+    # El DataFrame ya viene limpio desde read_excel_safe (solo headers duplicados eliminados)
+    # Las transformaciones específicas ya fueron aplicadas
     if len(dataframe) == 0:
         print(f"[WARNING] Intentando guardar DataFrame vacío!")
     
