@@ -68,19 +68,18 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         df['Exhibidor'] = df['Exhibidor'].astype(str)
         df['Cod.Asesor'] = df['Cod.Asesor'].astype(str)
         
-        # Formatear fecha (convertir a string primero si no lo es)
-        df['Fecha'] = df['Fecha'].astype(str)
+        # Formatear fecha (según txt original)
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
         df['Fecha'] = df['Fecha'].dt.strftime('%d-%m-%Y')
-        # Reemplazar NaT por cadena vacía
-        df['Fecha'] = df['Fecha'].fillna('')
+        # Reemplazar 'NaT' por cadena vacía si existen valores nulos
+        df['Fecha'] = df['Fecha'].replace('NaT', '')
         
         print(f"[INFO] Conversiones de tipo aplicadas")
         
         # Guardar resultado
         archivo_salida = os.path.join(carpeta_salida, 'maestra_clientes.csv')
         os.makedirs(carpeta_salida, exist_ok=True)
-        df.to_csv(archivo_salida, index=False, encoding='utf-8-sig')
+        df.to_csv(archivo_salida, index=False, encoding='utf-8')
         
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df)}")

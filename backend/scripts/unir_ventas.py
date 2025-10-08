@@ -3,6 +3,16 @@ Script para unir ventas acumuladas con ventas del mes (transformación según es
 """
 import pandas as pd
 import os
+import warnings
+
+def extraer_ano_mes(df):
+    """Extrae el mes de un DataFrame con columna 'Mes'"""
+    if 'Mes' not in df.columns:
+        raise ValueError("El archivo mensual debe contener una columna 'Mes'")
+    if df['Mes'].dtype == 'O':  # object (string/fecha)
+        df['Mes'] = pd.to_datetime(df['Mes'], errors='coerce')
+        df['Mes'] = df['Mes'].dt.month
+    return df['Mes'].unique()[0]
 
 def leer_archivo_robusto(archivo_entrada):
     """Lee un archivo (solo .xlsx y .csv soportados)"""
@@ -14,7 +24,6 @@ def leer_archivo_robusto(archivo_entrada):
         return pd.read_csv(archivo_entrada, sep=None, engine="python", dtype={'Cliente': str, 'Documento': str})
     else:
         raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
-        raise ValueError("Formato no soportado.")
 
 def ejecutar(archivo_acumulado, archivo_mes, carpeta_salida='transformados'):
     """
@@ -27,6 +36,7 @@ def ejecutar(archivo_acumulado, archivo_mes, carpeta_salida='transformados'):
     """
     try:
         print(f"\n[INFO] Procesamiento: Unión de Ventas Mensuales con Acumuladas")
+        warnings.filterwarnings('ignore')
         
         # Leer archivos con conversión automática
         df_mes = leer_archivo_robusto(archivo_mes)
@@ -36,10 +46,7 @@ def ejecutar(archivo_acumulado, archivo_mes, carpeta_salida='transformados'):
         print(f"[OK] Ventas acumuladas leidas: {len(df_acum)} registros")
         
         # Extraer mes del archivo mensual (según txt original)
-        if 'Mes' not in df_mes.columns:
-            raise ValueError("El archivo mensual debe contener una columna 'Mes'")
-        
-        mes_nuevo = df_mes['Mes'].unique()[0]
+        mes_nuevo = extraer_ano_mes(df_mes)
         print(f"[INFO] Mes nuevo detectado: {mes_nuevo}")
         
         # Eliminar el mes nuevo del acumulado si existe (según txt original)
@@ -57,7 +64,7 @@ def ejecutar(archivo_acumulado, archivo_mes, carpeta_salida='transformados'):
         # Guardar resultado
         archivo_salida = os.path.join(carpeta_salida, 'ventas_acum.csv')
         os.makedirs(carpeta_salida, exist_ok=True)
-        df_final.to_csv(archivo_salida, index=False, encoding='utf-8-sig')
+        df_final.to_csv(archivo_salida, index=False, encoding='utf-8')
         
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df_final)}")

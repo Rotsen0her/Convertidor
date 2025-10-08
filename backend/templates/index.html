@@ -368,24 +368,49 @@
     }
 
     // File input change handlers
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB en bytes
+
     document.getElementById('file-input').addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
-            showFileInfo(e.target.files[0], 'file-info', 'file-name');
+            const file = e.target.files[0];
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`❌ El archivo es demasiado grande (${(file.size/1024/1024).toFixed(2)} MB).\n\nTamaño máximo permitido: 1 GB (1024 MB)`);
+                e.target.value = '';
+                document.getElementById('file-info').classList.add('hidden');
+                return;
+            }
+            showFileInfo(file, 'file-info', 'file-name');
         }
     });
 
     document.getElementById('file-acum').addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`❌ El archivo es demasiado grande (${(file.size/1024/1024).toFixed(2)} MB).\n\nTamaño máximo permitido: 1 GB (1024 MB)`);
+                e.target.value = '';
+                document.getElementById('file-acum-info').classList.add('hidden');
+                updateSubmitButton();
+                return;
+            }
             document.getElementById('file-acum-info').classList.remove('hidden');
-            document.getElementById('file-acum-name').textContent = e.target.files[0].name;
+            document.getElementById('file-acum-name').textContent = file.name;
             updateSubmitButton();
         }
     });
 
     document.getElementById('file-mes').addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`❌ El archivo es demasiado grande (${(file.size/1024/1024).toFixed(2)} MB).\n\nTamaño máximo permitido: 1 GB (1024 MB)`);
+                e.target.value = '';
+                document.getElementById('file-mes-info').classList.add('hidden');
+                updateSubmitButton();
+                return;
+            }
             document.getElementById('file-mes-info').classList.remove('hidden');
-            document.getElementById('file-mes-name').textContent = e.target.files[0].name;
+            document.getElementById('file-mes-name').textContent = file.name;
             updateSubmitButton();
         }
     });

@@ -130,15 +130,27 @@ def ejecutar(archivo_entrada, mes):
         print(f"[INFO] Columnas divididas")
 
         # Formatear SOLO la columna "Venta - IVA" con coma como separador decimal (según txt original)
-        # Convertir a numérico y formatear: 1512600 / 100 = 15126.00 -> 15126,00
-        df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
+        # Si viene como string con coma (ej: "52526,00"), mantener el valor
+        # Si viene como número entero sin decimales (ej: 5252600), dividir por 100
+        if df['Venta - IVA'].dtype == 'object':  # Es string con comas
+            # Reemplazar coma por punto para poder convertir a numérico
+            df['Venta - IVA'] = df['Venta - IVA'].str.replace(',', '.', regex=False)
+            df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
+        else:  # Es numérico
+            df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
+            # Si los valores son enteros grandes (>10000), dividir por 100
+            # Ejemplo: 5252600 -> 52526.00
+            if df['Venta - IVA'].notna().any() and df['Venta - IVA'].max() > 10000:
+                df['Venta - IVA'] = df['Venta - IVA'] / 100
+        
+        # Formatear con coma como separador decimal
         df['Venta - IVA'] = df['Venta - IVA'].apply(
-            lambda x: f'{x/100:.2f}'.replace('.', ',') if pd.notna(x) else ''
+            lambda x: f'{x:.2f}'.replace('.', ',') if pd.notna(x) else ''
         )
         print(f"[INFO] Columna 'Venta - IVA' formateada")
 
         # Guardar archivo
-        df.to_csv(archivo_salida, index=False, encoding='utf-8-sig', sep=',', quoting=0)
+        df.to_csv(archivo_salida, index=False, encoding='utf-8', sep=',', quoting=0)
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df)}")
         

@@ -83,9 +83,9 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
             print(f"[INFO] Duplicados eliminados: {duplicados_eliminados}")
         
         # Guardar resultado
-        archivo_salida = os.path.join(carpeta_salida, 'Exhibidores.xlsx')
+        archivo_salida = os.path.join(carpeta_salida, 'Exhibidores.csv')
         os.makedirs(carpeta_salida, exist_ok=True)
-        df.to_excel(archivo_salida, index=False)
+        df.to_csv(archivo_salida, index=False, encoding='utf-8')
         
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df)}")
