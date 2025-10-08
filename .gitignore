@@ -58,6 +58,10 @@ package-lock.json
 static/css/output.css
 backend/static/css/output.css
 
+# Pero NO ignorar el favicon
+!backend/static/favicon.ico
+!static/favicon.ico
+
 # =========================================
 # 🗄️ Base de datos
 # =========================================

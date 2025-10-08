@@ -520,6 +520,10 @@ def transformar_exhibidores(df):
     return df
 
 # RUTAS DE AUTENTICACIÓN
+@app.route('/favicon.ico')
+def favicon():
+    return send_file('static/favicon.ico', mimetype='image/x-icon')
+
 @app.route('/')
 def index():
     if 'user_id' in session:
