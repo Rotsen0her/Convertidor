@@ -4,7 +4,6 @@ Script para procesar exhibidores (transformación según especificación origina
 import pandas as pd
 import numpy as np
 import os
-import io
 
 def ejecutar(archivo_entrada, carpeta_salida='transformados'):
     """
@@ -19,64 +18,14 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         extension = os.path.splitext(archivo_entrada)[1].lower()
         
-        # Lectura según extensión
-        if extension == ".xls":
-            # Detectar si es HTML o Excel binario real
-            print("[INFO] Detectando tipo de archivo .xls...")
-            
-            with open(archivo_entrada, 'rb') as f:
-                file_content = f.read()
-            
-            # Detectar si es HTML
-            header = file_content[:1024].decode('latin-1', errors='ignore').lower()
-            is_html = any(marker in header for marker in ['<html', '<!doctype', '<htm', '<table'])
-            
-            if is_html:
-                print("[INFO] Archivo .xls es HTML, extrayendo tabla...")
-                try:
-                    # Leer como HTML
-                    dfs = pd.read_html(io.BytesIO(file_content), header=0)
-                    
-                    if not dfs:
-                        raise ValueError("No se encontraron tablas en el archivo HTML")
-                    
-                    df = dfs[0]
-                    print(f"[INFO] Tabla HTML extraída: {len(df)} filas, {len(df.columns)} columnas")
-                    
-                except ImportError as ie:
-                    print(f"[ERROR] Falta dependencia para leer HTML: {ie}")
-                    print("[INFO] Instale: pip install lxml html5lib")
-                    raise
-            else:
-                # Es Excel binario real, convertir .xls a .xlsx
-                print("[INFO] Archivo .xls es Excel binario, convirtiendo a .xlsx internamente...")
-                
-                try:
-                    # Leer con xlrd (motor antiguo para .xls)
-                    df_temp = pd.read_excel(archivo_entrada, engine='xlrd', dtype={'Numero': str, 'Cod. Cliente': str})
-                    
-                    # Convertir a .xlsx en memoria usando openpyxl
-                    xlsx_buffer = io.BytesIO()
-                    with pd.ExcelWriter(xlsx_buffer, engine='openpyxl') as writer:
-                        df_temp.to_excel(writer, index=False, sheet_name='Sheet1')
-                    
-                    # Leer el .xlsx generado
-                    xlsx_buffer.seek(0)
-                    df = pd.read_excel(xlsx_buffer, engine='openpyxl', dtype={'Numero': str, 'Cod. Cliente': str})
-                    
-                    print(f"[INFO] Conversión .xls -> .xlsx completada: {len(df)} filas, {len(df.columns)} columnas")
-                    
-                except Exception as e:
-                    print(f"[ERROR] Error convirtiendo .xls a .xlsx: {e}")
-                    raise
-                
-        elif extension == ".xlsx":
+        # Lectura según extensión (solo .xlsx y .csv soportados)
+        if extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Numero': str, 'Cod. Cliente': str})
         elif extension == ".csv":
             # Leer CSV con separador '|' según el txt original
             df = pd.read_csv(archivo_entrada, sep='|', encoding='latin1', dtype={'Numero': str, 'Cod. Cliente': str})
         else:
-            raise ValueError("Formato no soportado.")
+            raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
         
         print(f"\n[INFO] Datos cargados: {len(df)} filas, {len(df.columns)} columnas")
         
@@ -90,11 +39,6 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         
         # TRANSFORMACIÓN DE EXHIBIDORES (según txt original)
         print(f"\n[INFO] Aplicando transformaciones...")
-        
-        # Convertir columnas clave a string antes de hacer operaciones (evita errores con HTML)
-        for col in ['Numero', 'Cod. Cliente', 'Num. Comodato', 'Estado', 'Tipo']:
-            if col in df.columns:
-                df[col] = df[col].astype(str)
         
         # Conversión de tipos (según txt original)
         df['Numero'] = df['Numero'].astype(str)
