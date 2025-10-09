@@ -400,14 +400,7 @@ def procesar_archivo(tipo):
             elif tipo == 'exhibidores':
                 print(f"[INFO] Procesando exhibidores usando script")
                 exhibidores.ejecutar(temp_file, carpeta_salida=temp_dir)
-                output_filename = 'Exhibidores.xlsx'
-                # Convertir a CSV para consistencia
-                xlsx_path = os.path.join(temp_dir, output_filename)
-                if os.path.exists(xlsx_path):
-                    df_temp = pd.read_excel(xlsx_path)
-                    csv_path = os.path.join(temp_dir, 'Exhibidores.csv')
-                    df_temp.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                    output_filename = 'Exhibidores.csv'
+                output_filename = 'Exhibidores.csv'
             
             else:
                 return jsonify({'success': False, 'error': f'Tipo de procesamiento "{tipo}" no reconocido'}), 400
