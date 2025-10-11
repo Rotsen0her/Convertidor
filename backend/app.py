@@ -405,9 +405,9 @@ def procesar_archivo(tipo):
             # Leer resultado procesado
             resultado_path = os.path.join(temp_dir, output_filename)
             if output_filename.endswith('.csv'):
-                # Para venta_material, mantener Cliente y Documento como string
+                # Para venta_material, mantener Cliente y Documento como string y preservar espacios
                 if tipo == 'venta_material':
-                    df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig', dtype={'Cliente': str, 'Documento': str})
+                    df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig', dtype={'Cliente': str, 'Documento': str, 'Cod. Asesor': str}, skipinitialspace=False, keep_default_na=False)
                 else:
                     df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
             else:
