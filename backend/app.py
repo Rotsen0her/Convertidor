@@ -405,7 +405,11 @@ def procesar_archivo(tipo):
             # Leer resultado procesado
             resultado_path = os.path.join(temp_dir, output_filename)
             if output_filename.endswith('.csv'):
-                df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
+                # Para venta_material, mantener Cliente y Documento como string
+                if tipo == 'venta_material':
+                    df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig', dtype={'Cliente': str, 'Documento': str})
+                else:
+                    df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
             else:
                 df_procesado = pd.read_excel(resultado_path)
             
