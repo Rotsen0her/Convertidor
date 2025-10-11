@@ -15,13 +15,30 @@ def extraer_ano_mes(df):
     return df['Mes'].unique()[0]
 
 def leer_archivo_robusto(archivo_entrada):
-    """Lee un archivo (solo .xlsx y .csv soportados)"""
+    """Lee un archivo (solo .xlsx y .csv soportados) con detección automática de encoding"""
     extension = os.path.splitext(archivo_entrada)[1].lower()
     
     if extension == ".xlsx":
         return pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Cliente': str, 'Documento': str})
     elif extension == ".csv":
-        return pd.read_csv(archivo_entrada, sep=None, engine="python", dtype={'Cliente': str, 'Documento': str})
+        # Intentar múltiples encodings (ventas_mes usa latin1, otros pueden usar utf-8)
+        encodings_to_try = ['latin1', 'utf-8', 'utf-8-sig', 'cp1252', 'iso-8859-1']
+        
+        for encoding in encodings_to_try:
+            try:
+                df = pd.read_csv(
+                    archivo_entrada, 
+                    encoding=encoding, 
+                    dtype={'Cliente': str, 'Documento': str, 'Cod. Asesor': str},
+                    skipinitialspace=False,
+                    keep_default_na=False
+                )
+                print(f"[INFO] Archivo CSV leído con encoding: {encoding}")
+                return df
+            except (UnicodeDecodeError, Exception) as e:
+                if encoding == encodings_to_try[-1]:  # último intento
+                    raise ValueError(f"No se pudo leer el archivo con ningún encoding probado")
+                continue
     else:
         raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
 
@@ -64,7 +81,8 @@ def ejecutar(archivo_acumulado, archivo_mes, carpeta_salida='transformados'):
         # Guardar resultado
         archivo_salida = os.path.join(carpeta_salida, 'ventas_acum.csv')
         os.makedirs(carpeta_salida, exist_ok=True)
-        df_final.to_csv(archivo_salida, index=False, encoding='utf-8')
+        # Usar latin1 y CRLF para mantener compatibilidad con venta_material
+        df_final.to_csv(archivo_salida, index=False, encoding='latin1', lineterminator='\r\n')
         
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df_final)}")
