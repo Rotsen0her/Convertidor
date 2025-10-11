@@ -68,6 +68,26 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         df['Exhibidor'] = df['Exhibidor'].astype(str)
         df['Cod.Asesor'] = df['Cod.Asesor'].astype(str)
         
+        # Formatear Codigo Ecom con padding de ceros (como en aplicación original)
+        # Solo aplicar padding a códigos numéricos que no empiezan con "2000"
+        def format_codigo_ecom(codigo):
+            codigo = str(codigo).strip()
+            # Si empieza con "2000" (12 dígitos), no aplicar padding
+            if codigo.startswith('2000'):
+                return codigo
+            # Si es numérico y menor a 8 dígitos, aplicar padding a 8 dígitos (no 9)
+            try:
+                num = int(codigo)
+                if len(codigo) <= 8:
+                    return codigo.zfill(8)
+            except:
+                pass
+            return codigo
+        
+        df['Codigo Ecom'] = df['Codigo Ecom'].apply(format_codigo_ecom)
+        
+        print(f"[INFO] Codigo Ecom formateado con padding")
+        
         # Formatear fecha (según txt original)
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
         df['Fecha'] = df['Fecha'].dt.strftime('%d-%m-%Y')
@@ -79,7 +99,8 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
         # Guardar resultado
         archivo_salida = os.path.join(carpeta_salida, 'maestra_clientes.csv')
         os.makedirs(carpeta_salida, exist_ok=True)
-        df.to_csv(archivo_salida, index=False, encoding='utf-8')
+        # Usar lineterminator='\r\n' para saltos de línea Windows (CRLF)
+        df.to_csv(archivo_salida, index=False, encoding='utf-8', lineterminator='\r\n')
         
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df)}")

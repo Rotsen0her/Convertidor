@@ -53,22 +53,14 @@ def admin_required(f):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def save_to_cache(user_id, filename, dataframe, encoding='utf-8-sig'):
-    """Guarda un DataFrame en el cache del usuario (filesystem)"""
-    # El DataFrame ya viene limpio desde read_excel_safe (solo headers duplicados eliminados)
-    # Las transformaciones específicas ya fueron aplicadas
-    if len(dataframe) == 0:
-        print(f"[WARNING] Intentando guardar DataFrame vacío!")
+def save_to_cache(user_id, filename, file_path):
+    """Guarda un archivo procesado en el cache del usuario (filesystem) - copia directa sin modificar"""
+    # Leer el archivo como bytes sin procesar
+    with open(file_path, 'rb') as f:
+        csv_data = f.read()
     
-    # Convertir DataFrame a CSV en memoria
-    output = io.BytesIO()
-    # Usar encoding especificado (utf-8-sig por defecto, latin1 para venta_material)
-    # QUOTE_MINIMAL (quoting=0) añade comillas solo donde es necesario (valores con comas)
-    # La columna Venta - IVA contiene comas, así que pandas añadirá las comillas automáticamente
-    # lineterminator='\r\n' para compatibilidad Windows (CRLF)
-    dataframe.to_csv(output, index=False, encoding=encoding, sep=',', quoting=0, lineterminator='\r\n')
-    output.seek(0)
-    csv_data = output.getvalue()
+    if len(csv_data) == 0:
+        print(f"[WARNING] Intentando guardar archivo vacío!")
     
     # Guardar archivo CSV en filesystem
     cache_file_path = os.path.join(CACHE_DIR, f'user_{user_id}.csv')
@@ -86,7 +78,7 @@ def save_to_cache(user_id, filename, dataframe, encoding='utf-8-sig'):
     with open(cache_meta_path, 'w') as f:
         json.dump(metadata, f)
     
-    print(f"[INFO] Archivo guardado en cache: {filename} ({len(dataframe)} filas, {len(dataframe.columns)} columnas)")
+    print(f"[INFO] Archivo guardado en cache: {filename} ({len(csv_data)} bytes)")
     
 def get_from_cache(user_id):
     """Obtiene archivo del cache del usuario (filesystem)"""
@@ -336,16 +328,18 @@ def procesar_archivo(tipo):
                 print(f"[INFO] Procesando unión de ventas usando script")
                 unir_ventas.ejecutar(temp_acum, temp_mes, carpeta_salida=temp_dir)
                 
-                # Leer resultado
+                # Ruta al resultado
                 resultado_path = os.path.join(temp_dir, 'ventas_acum.csv')
-                df_resultado = pd.read_csv(resultado_path, encoding='utf-8-sig')
+                
+                if not os.path.exists(resultado_path):
+                    return jsonify({'success': False, 'error': 'El archivo procesado no se generó correctamente'}), 500
+                
+                # Guardar en cache (copia directa del archivo sin modificar)
+                save_to_cache(user_id, 'ventas_acum.csv', resultado_path)
                 
                 # Limpiar archivos temporales
                 import shutil
                 shutil.rmtree(temp_dir)
-                
-                # Guardar en cache
-                save_to_cache(user_id, 'ventas_acum.csv', df_resultado)
                 
                 return jsonify({
                     'success': True, 
@@ -385,38 +379,30 @@ def procesar_archivo(tipo):
                 print(f"[INFO] Procesando maestra de clientes usando script")
                 clientes.ejecutar(temp_file, carpeta_salida=temp_dir)
                 output_filename = 'maestra_clientes.csv'
-                output_encoding = 'utf-8'  # clientes guarda con utf-8
                 
             elif tipo == 'venta_material':
                 mes = request.form.get('mes', '')
                 print(f"[INFO] Procesando venta_material con mes: {mes} usando script")
                 venta_material.ejecutar(temp_file, mes, carpeta_salida=temp_dir)
                 output_filename = 'ventas_mes.csv'
-                output_encoding = 'latin1'  # venta_material guarda con latin1
             
             elif tipo == 'exhibidores':
                 print(f"[INFO] Procesando exhibidores usando script")
                 exhibidores.ejecutar(temp_file, carpeta_salida=temp_dir)
                 output_filename = 'Exhibidores.csv'
-                output_encoding = 'utf-8'  # exhibidores guarda con utf-8
             
             else:
                 return jsonify({'success': False, 'error': f'Tipo de procesamiento "{tipo}" no reconocido'}), 400
             
-            # Leer resultado procesado
+            # Ruta al archivo procesado
             resultado_path = os.path.join(temp_dir, output_filename)
-            if output_filename.endswith('.csv'):
-                # Para venta_material, mantener Cliente y Documento como string y preservar espacios
-                if tipo == 'venta_material':
-                    df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig', dtype={'Cliente': str, 'Documento': str, 'Cod. Asesor': str}, skipinitialspace=False, keep_default_na=False)
-                else:
-                    df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
-            else:
-                df_procesado = pd.read_excel(resultado_path)
+            
+            if not os.path.exists(resultado_path):
+                return jsonify({'success': False, 'error': 'El archivo procesado no se generó correctamente'}), 500
             
             print(f"[INFO] Guardando en cache: {output_filename}")
-            # Guardar en cache con el encoding correcto
-            save_to_cache(user_id, output_filename, df_procesado, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
+            # Guardar en cache (copia directa del archivo sin modificar)
+            save_to_cache(user_id, output_filename, resultado_path)
             
             # Limpiar archivos temporales
             import shutil
