@@ -10,4 +10,4 @@ cd "$APP_DIR"
 # Así que no necesitamos source .env aquí
 
 # Ejecutar gunicorn
-exec gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 app:app
+exec gunicorn --bind 0.0.0.0:8000 --workers 3 --worker-class gevent --timeout 600 app:app
