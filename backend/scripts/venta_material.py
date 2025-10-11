@@ -35,7 +35,7 @@ def ejecutar(archivo_entrada, mes):
         if extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Cliente': str, 'Documento': str})
         elif extension == ".csv":
-            df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=None, engine="python")
+            df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding='latin1', engine="python")
         else:
             raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
 
@@ -51,6 +51,19 @@ def ejecutar(archivo_entrada, mes):
         
         # TRANSFORMACIÓN DE VENTAS (según txt original)
         print(f"\n[INFO] Aplicando transformaciones...")
+
+        # Renombrar columnas (según txt original)
+        df = df.rename(columns={
+            'Razon Soc': 'Razon Social',
+            'Cant. Ped.': 'Cant. pedida',
+            'Cant. Dev.': 'Cant. devuelta',
+            'Cant. Neta': 'Cantidad neta',
+            'Vta. - IVA': 'Venta - IVA',
+            'SubMarca': 'Sub marca',
+            'SubLinea': 'Sub linea',
+            'Sub Categoria': 'Sub categoria',
+        })
+        print(f"[INFO] Columnas renombradas")
 
         # Filtrado de columnas (según txt original)
         columnas_requeridas = ['Cliente', 'Nombre', 'Razon Social', 'Documento', 'Barrio', 'Nombre Segmento',
@@ -68,37 +81,71 @@ def ejecutar(archivo_entrada, mes):
         # Reemplazos (según txt original)
         reemplazos = {
             'Categoria': {
-                '10-Cafi': '10-Cafe',
-                '51-Ti e infusiones': '51-Te e infusiones',
-                '61-Equipos Preparacisn': '61-Equipos Preparacion',
-                '06-Champiqones': '06-Champinones',
+                '10-Café': '10-Cafe',
+                '51-Té e infusiones': '51-Te e infusiones',
+                '61-Equipos Preparación': '61-Equipos Preparacion',
+                '06-Champiñones': '06-Champinones',
                 '09-Bebidas dechocolate': '09-Bebidas de chocolate',
             },
             'Nombre Segmento': {
-                'Reposicisn': 'Reposicion',
-                'AU Multimisisn': 'AU Multimision',
-                'Servicios de Alimentacisn': 'Servicios de Alimentacion'
+                'Reposición': 'Reposicion',
+                'AU Multimisión': 'AU Multimision',
+                'Servicios de Alimentación': 'Servicios de Alimentacion',
+                'Centros de diversión': 'Centros de diversion'
             },
             'Marca': {
-                '026-Colcafi': '026-Colcafe',
-                '001-Zenz': '001-Zenu',
-                '351-Genirico otros distibuidos': '351-Generico otros distribuidos',
-                '373-Binet': '373-Benet'
+                '026-Colcafé': '026-Colcafe',
+                '001-Zenú': '001-Zenu',
+                '351-Genérico otros distibuidos': '351-Generico otros distribuidos',
+                '373-Bénet': '373-Benet',
+                '113-Drácula': '113-Dracula',
+                '096-Setas de Cuivá': '096-Setas de Cuiva'
             },
             'Sub marca': {
-                '01-Colcafi': '01-Colcafe',
-                '02-Zenz': '02-Zenu',
-                '01-Genirico otros distibuidos': '01-Generico otros distribuidos',
-                '01-Binet': '01-Benet',
-                '02-Zenz': '01-Zenu',
+                '01-Colcafé': '01-Colcafe',
+                '01-Zenú': '01-Zenu',
+                '02-Zenú': '02-Zenu',
+                '01-Genérico otros distibuidos': '01-Generico otros distribuidos',
+                '01-Bénet': '01-Benet',
                 '10-Lechey calcio': '10-Leche y calcio',
                 '04-Lechecon almendras': '04-Leche con almendras',
                 '12-Quesoy Mantequilla': '12-Queso y Mantequilla',
-                '08-Gool': '08-Gol'
+                '08-Gool': '08-Gol',
+                '01-Drácula': '01-Dracula',
             },
             'Negocio': {
-                '04-Cafi': '04-Cafe',
-                '23-Nutricisn Experta': '23-Nutricion Experta'
+                '01-Cárnicos': '01-Carnicos',
+                '04-Café': '04-Cafe',
+                '23-Nutrición Experta': '23-Nutricion Experta',
+            },
+            'Linea': {
+                '0094-Sólidas': '0094-Solidas',
+                '0041-Azúcar': '0041-Azucar',
+                '0058-Café Molido': '0058-Cafe Molido',
+                '0103-Pasta Clásica': '0103-Pasta Clasica',
+                '0200-Atún': '0200-Atun',
+                '0194-Maíz LV': '0194-Maiz LV',
+                '0029-Otros LV Cárnicos': '0029-Otros LV Carnicos',
+                '0090-Cremas dechocolate': '0090-Cremas de chocolate',
+                '0521-Cápsulas': '0521-Capsulas',
+            },
+            'Sub linea': {
+                '0161-Sólidas sin agregados': '0161-Solidas sin agregados',
+                '0160-Sólidas con agregados': '0160-Solidas con agregados',
+                '0171-Grageadoscrocantes': '0171-Grageados crocantes',
+                '0173-Clásica': '0173-Clasica',
+                '0296-Maíz LV': '0296-Maiz LV',
+                '0151-Bombones sólidos': '0151-Bombones solidos',
+                '0420-Azúcar': '0420-Azucar',
+                '0152-Cremas deChocolate': '0152-Cremas de Chocolate',
+                '0141-Estuches de Línea': '0141-Estuches de Linea',
+                '0688-Cápsulas': '0688-Capsulas',
+            },
+            'Sub categoria': {
+                '026-Instantáneo': '026-Instantaneo',
+                '027-Mezclas Instantáneas': '027-Mezclas Instantaneas',
+                '056-OtrosDistribuidos': '056-Otros Distribuidos',
+                '277-Cápsulas Nutricional': '277-Capsulas Nutricional'
             }
         }
 
@@ -114,43 +161,23 @@ def ejecutar(archivo_entrada, mes):
         # Verificar que tenemos datos antes de continuar
         if len(df) == 0:
             print("[ADVERTENCIA] No hay datos después del filtrado. Creando archivo vacío...")
-            df.to_csv(archivo_salida, index=False, encoding='utf-8-sig', sep=',', quoting=0)
+            df.to_csv(archivo_salida, index=False, encoding='latin1')
             print(f"[INFO] Archivo vacío guardado en: {archivo_salida}")
             return
 
         # División de columnas (según txt original)
         df[['Cod. Asesor', 'Asesor']] = df['Vendedor'].str.split('-', n=1, expand=True)
-        df.drop(columns=['Vendedor'], inplace=True)
-        
-        split_result = df['Ciudad'].str.split('-', n=1, expand=True)
-        if split_result.shape[1] == 2:
-            df['Ciudad'] = split_result[1]
-        df.drop(columns=['Cod. Ciudad'], inplace=True, errors='ignore')
+        df[['Cod. Ciudad', 'Ciudad']] = df['Ciudad'].str.split('-', n=1, expand=True)
+        df.drop(columns=['Cod. Ciudad', 'Vendedor'], inplace=True)
         
         print(f"[INFO] Columnas divididas")
 
-        # Formatear SOLO la columna "Venta - IVA" con coma como separador decimal (según txt original)
-        # Si viene como string con coma (ej: "52526,00"), mantener el valor
-        # Si viene como número entero sin decimales (ej: 5252600), dividir por 100
-        if df['Venta - IVA'].dtype == 'object':  # Es string con comas
-            # Reemplazar coma por punto para poder convertir a numérico
-            df['Venta - IVA'] = df['Venta - IVA'].str.replace(',', '.', regex=False)
-            df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
-        else:  # Es numérico
-            df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce')
-            # Si los valores son enteros grandes (>10000), dividir por 100
-            # Ejemplo: 5252600 -> 52526.00
-            if df['Venta - IVA'].notna().any() and df['Venta - IVA'].max() > 10000:
-                df['Venta - IVA'] = df['Venta - IVA'] / 100
-        
-        # Formatear con coma como separador decimal
-        df['Venta - IVA'] = df['Venta - IVA'].apply(
-            lambda x: f'{x:.2f}'.replace('.', ',') if pd.notna(x) else ''
-        )
-        print(f"[INFO] Columna 'Venta - IVA' formateada")
+        # Conversión columna Venta - IVA a numero entero (según txt original)
+        df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce').fillna(0).astype(int)
+        print(f"[INFO] Columna 'Venta - IVA' convertida a entero")
 
-        # Guardar archivo
-        df.to_csv(archivo_salida, index=False, encoding='utf-8', sep=',', quoting=0)
+        # Guardar archivo (según txt original: encoding latin1)
+        df.to_csv(archivo_salida, index=False, encoding='latin1')
         print(f"[OK] Archivo guardado: {archivo_salida}")
         print(f"[OK] Registros procesados: {len(df)}")
         

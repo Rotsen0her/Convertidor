@@ -384,6 +384,7 @@ def procesar_archivo(tipo):
                 print(f"[INFO] Procesando maestra de clientes usando script")
                 clientes.ejecutar(temp_file, carpeta_salida=temp_dir)
                 output_filename = 'maestra_clientes.csv'
+                output_encoding = 'utf-8'  # clientes guarda con utf-8
                 
             elif tipo == 'venta_material':
                 mes = request.form.get('mes', '')
@@ -396,11 +397,13 @@ def procesar_archivo(tipo):
                 if os.path.exists(posible_salida):
                     temp_dir = os.path.join(script_dir, 'transformados')
                 output_filename = 'ventas_mes.csv'
+                output_encoding = 'latin1'  # venta_material guarda con latin1
             
             elif tipo == 'exhibidores':
                 print(f"[INFO] Procesando exhibidores usando script")
                 exhibidores.ejecutar(temp_file, carpeta_salida=temp_dir)
                 output_filename = 'Exhibidores.csv'
+                output_encoding = 'utf-8'  # exhibidores guarda con utf-8
             
             else:
                 return jsonify({'success': False, 'error': f'Tipo de procesamiento "{tipo}" no reconocido'}), 400
@@ -408,7 +411,7 @@ def procesar_archivo(tipo):
             # Leer resultado procesado
             resultado_path = os.path.join(temp_dir, output_filename)
             if output_filename.endswith('.csv'):
-                df_procesado = pd.read_csv(resultado_path, encoding='utf-8-sig')
+                df_procesado = pd.read_csv(resultado_path, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
             else:
                 df_procesado = pd.read_excel(resultado_path)
             
