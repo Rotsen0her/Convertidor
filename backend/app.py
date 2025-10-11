@@ -65,7 +65,8 @@ def save_to_cache(user_id, filename, dataframe, encoding='utf-8-sig'):
     # Usar encoding especificado (utf-8-sig por defecto, latin1 para venta_material)
     # QUOTE_MINIMAL (quoting=0) añade comillas solo donde es necesario (valores con comas)
     # La columna Venta - IVA contiene comas, así que pandas añadirá las comillas automáticamente
-    dataframe.to_csv(output, index=False, encoding=encoding, sep=',', quoting=0)
+    # line_terminator='\r\n' para compatibilidad Windows (CRLF)
+    dataframe.to_csv(output, index=False, encoding=encoding, sep=',', quoting=0, line_terminator='\r\n')
     output.seek(0)
     csv_data = output.getvalue()
     
