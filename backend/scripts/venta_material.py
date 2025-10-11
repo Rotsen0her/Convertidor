@@ -179,6 +179,15 @@ def ejecutar(archivo_entrada, mes, carpeta_salida='transformados'):
         df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce').fillna(0).astype(int)
         print(f"[INFO] Columna 'Venta - IVA' convertida a entero")
 
+        # Formatear Cliente con padding de ceros (10 dígitos) para archivos CSV
+        # Esto asegura que Excel no convierta el campo a número
+        df['Cliente'] = df['Cliente'].astype(str).str.zfill(10)
+        
+        # Formatear Cod. Asesor: agregar espacio al final (formato aplicación original)
+        df['Cod. Asesor'] = df['Cod. Asesor'].astype(str).str.strip() + ' '
+        
+        print(f"[INFO] Cliente formateado con padding (10 dígitos)")
+
         # Guardar archivo (según txt original: encoding latin1)
         df.to_csv(archivo_salida, index=False, encoding='latin1')
         print(f"[OK] Archivo guardado: {archivo_salida}")
