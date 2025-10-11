@@ -53,7 +53,7 @@ def admin_required(f):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def save_to_cache(user_id, filename, dataframe):
+def save_to_cache(user_id, filename, dataframe, encoding='utf-8-sig'):
     """Guarda un DataFrame en el cache del usuario (filesystem)"""
     # El DataFrame ya viene limpio desde read_excel_safe (solo headers duplicados eliminados)
     # Las transformaciones específicas ya fueron aplicadas
@@ -62,10 +62,10 @@ def save_to_cache(user_id, filename, dataframe):
     
     # Convertir DataFrame a CSV en memoria
     output = io.BytesIO()
-    # Usar UTF-8 con BOM para compatibilidad con Excel y caracteres especiales
+    # Usar encoding especificado (utf-8-sig por defecto, latin1 para venta_material)
     # QUOTE_MINIMAL (quoting=0) añade comillas solo donde es necesario (valores con comas)
     # La columna Venta - IVA contiene comas, así que pandas añadirá las comillas automáticamente
-    dataframe.to_csv(output, index=False, encoding='utf-8-sig', sep=',', quoting=0)
+    dataframe.to_csv(output, index=False, encoding=encoding, sep=',', quoting=0)
     output.seek(0)
     csv_data = output.getvalue()
     
@@ -414,8 +414,8 @@ def procesar_archivo(tipo):
                 df_procesado = pd.read_excel(resultado_path)
             
             print(f"[INFO] Guardando en cache: {output_filename}")
-            # Guardar en cache
-            save_to_cache(user_id, output_filename, df_procesado)
+            # Guardar en cache con el encoding correcto
+            save_to_cache(user_id, output_filename, df_procesado, encoding=output_encoding if 'output_encoding' in locals() else 'utf-8-sig')
             
             # Limpiar archivos temporales
             import shutil
