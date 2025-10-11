@@ -1,30 +1,17 @@
-"""
-Script para procesar ventas por material (transformación según especificación original)
-"""
 import pandas as pd
 import os
 
-def ejecutar(archivo_entrada, mes):
+def ejecutar(archivo_entrada, mes, carpeta_salida='transformados'):
     """
     Procesa un archivo de ventas por material
     
     Args:
         archivo_entrada: Ruta al archivo Excel/CSV de entrada
         mes: Mes de las ventas
+        carpeta_salida: Carpeta donde guardar el archivo transformado
     """
     print("\n[INFO] Procesamiento: Informe Venta x Material x Cliente")
 
-    # Usar carpeta transformados en el directorio actual si no existe la ruta original
-    carpeta_salida_original = r'C:\Users\Jose Berrio\OneDrive\Escritorio\BI ZAFIRO 2025\Zafiro Ejecutable\Transformados'
-    
-    if os.path.exists(os.path.dirname(carpeta_salida_original)):
-        carpeta_salida = carpeta_salida_original
-    else:
-        # Usar carpeta local si no tenemos acceso a la ruta original
-        carpeta_salida = os.path.join(os.path.dirname(__file__), '..', 'transformados')
-        carpeta_salida = os.path.abspath(carpeta_salida)
-        print(f"[INFO] Usando carpeta local: {carpeta_salida}")
-    
     os.makedirs(carpeta_salida, exist_ok=True)
     archivo_salida = os.path.join(carpeta_salida, "ventas_mes.csv")
 
@@ -35,7 +22,23 @@ def ejecutar(archivo_entrada, mes):
         if extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Cliente': str, 'Documento': str})
         elif extension == ".csv":
-            df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding='latin1', engine="python")
+            # Intentar múltiples encodings para CSV (robustez)
+            encodings_to_try = ['latin1', 'utf-8', 'cp1252', 'iso-8859-1']
+            df = None
+            last_error = None
+            
+            for encoding in encodings_to_try:
+                try:
+                    print(f"[INFO] Intentando leer CSV con encoding: {encoding}")
+                    df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding=encoding, engine="python")
+                    print(f"[OK] Archivo leído correctamente con encoding: {encoding}")
+                    break
+                except (UnicodeDecodeError, Exception) as e:
+                    last_error = e
+                    continue
+            
+            if df is None:
+                raise ValueError(f"❌ No se pudo leer el archivo CSV con ningún encoding probado. Último error: {last_error}")
         else:
             raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
 

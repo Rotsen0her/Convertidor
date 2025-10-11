@@ -389,13 +389,7 @@ def procesar_archivo(tipo):
             elif tipo == 'venta_material':
                 mes = request.form.get('mes', '')
                 print(f"[INFO] Procesando venta_material con mes: {mes} usando script")
-                venta_material.ejecutar(temp_file, mes)
-                # El script guarda en su propia carpeta, necesitamos leer de ahí
-                # Primero intentar la carpeta local del script
-                script_dir = os.path.dirname(os.path.abspath(__file__))
-                posible_salida = os.path.join(script_dir, 'transformados', 'ventas_mes.csv')
-                if os.path.exists(posible_salida):
-                    temp_dir = os.path.join(script_dir, 'transformados')
+                venta_material.ejecutar(temp_file, mes, carpeta_salida=temp_dir)
                 output_filename = 'ventas_mes.csv'
                 output_encoding = 'latin1'  # venta_material guarda con latin1
             
