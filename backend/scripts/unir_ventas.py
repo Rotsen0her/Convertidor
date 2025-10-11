@@ -9,10 +9,10 @@ def extraer_ano_mes(df):
     """Extrae el mes de un DataFrame con columna 'Mes'"""
     if 'Mes' not in df.columns:
         raise ValueError("El archivo mensual debe contener una columna 'Mes'")
-    if df['Mes'].dtype == 'O':  # object (string/fecha)
-        df['Mes'] = pd.to_datetime(df['Mes'], errors='coerce')
-        df['Mes'] = df['Mes'].dt.month
-    return df['Mes'].unique()[0]
+    
+    # La columna Mes ya viene como entero desde leer_archivo_robusto
+    mes = df['Mes'].unique()[0]
+    return int(mes)
 
 def leer_archivo_robusto(archivo_entrada):
     """Lee un archivo (solo .xlsx y .csv soportados) con detección automática de encoding"""
@@ -34,6 +34,11 @@ def leer_archivo_robusto(archivo_entrada):
                     keep_default_na=False
                 )
                 print(f"[INFO] Archivo CSV leído con encoding: {encoding}")
+                
+                # Convertir columna Mes a entero si existe (para comparación correcta)
+                if 'Mes' in df.columns:
+                    df['Mes'] = pd.to_numeric(df['Mes'], errors='coerce').fillna(0).astype(int)
+                
                 return df
             except (UnicodeDecodeError, Exception) as e:
                 if encoding == encodings_to_try[-1]:  # último intento
