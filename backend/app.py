@@ -301,7 +301,6 @@ def procesar_archivo(tipo):
     try:
         user_id = session.get('user_id')
         
-        # Para unión de ventas (2 archivos)
         if tipo == 'union_ventas':
             if 'archivo_acum' not in request.files or 'archivo_mes' not in request.files:
                 return jsonify({'success': False, 'error': 'Faltan archivos'}), 400

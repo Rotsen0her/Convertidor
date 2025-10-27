@@ -1,57 +1,37 @@
-"""
-Script para procesar archivos de clientes (transformación según especificación original)
-"""
 import pandas as pd
 import os
 
-def ejecutar(archivo_entrada, carpeta_salida='transformados'):
-    """
-    Procesa un archivo de clientes y genera la maestra
-    
-    Args:
-        archivo_entrada: Ruta al archivo Excel/CSV de entrada
-        carpeta_salida: Carpeta donde guardar el archivo transformado
-    """
+def ejecutar(archivo_entrada, carpeta_salida):
+    print("\n📊 Procesamiento: Base de datos de clientes")
+
+    os.makedirs(carpeta_salida, exist_ok=True)
+    archivo_salida = os.path.join(carpeta_salida, "maestra_clientes.csv")
+
     try:
-        print(f"\n[INFO] Procesando archivo de clientes: {archivo_entrada}")
-        
+        # Detectar extensión del archivo cargado
         extension = os.path.splitext(archivo_entrada)[1].lower()
-        
-        # Lectura según extensión (solo .xlsx y .csv soportados)
+        nombre_archivo = os.path.basename(archivo_entrada)
+        print(f"✅ Archivo recibido: {nombre_archivo}")
+
+        # Leer según el tipo de archivo
+    
         if extension == ".xlsx":
             df = pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Codigo Ecom': str})
         elif extension == ".csv":
             df = pd.read_csv(archivo_entrada, sep=None, engine="python", dtype={'Codigo Ecom': str})
         else:
-            raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
-        
-        print(f"\n[INFO] Datos cargados: {len(df)} filas, {len(df.columns)} columnas")
-        
-        # LIMPIEZA MÍNIMA: solo eliminar header duplicado si existe
-        if len(df) > 0:
-            headers = df.columns.astype(str).tolist()
-            first_row = df.iloc[0].astype(str).tolist()
-            if first_row == headers:
-                df = df.iloc[1:].reset_index(drop=True)
-                print(f"[INFO] Primera fila era header duplicado, eliminada")
-        
-        # TRANSFORMACIÓN DE CLIENTES (según txt original)
-        print(f"\n[INFO] Aplicando transformaciones...")
-        
-        # Columnas esperadas (17 columnas según script original)
+            raise ValueError("❌ Formato de archivo no soportado.")
+
+        # Columnas esperadas
         columnas = [
             'Codigo Ecom', 'Sucursal', 'Documento', 'Ra. Social', 'Nombre Neg',
             'Dpto', 'Ciudad', 'Barrio', 'Segmento', 'Fecha',
             'Coordenada Y', 'Coordenada X', 'Exhibidor', 'Cod.Asesor',
             'Asesor', 'Coordenadas Gis', 'Socios Nutresa'
         ]
-        
-        # Seleccionar columnas (sin agregar columnas faltantes, tal como en el txt)
         df = df[columnas].copy()
-        
-        print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
-        
-        # Correcciones (según txt original)
+
+        # Correcciones
         df['Ciudad'] = df['Ciudad'].replace({'MOQITOS': 'MONITOS'})
         df['Segmento'] = df['Segmento'].replace({
             'Reposicisn': 'Reposicion',
@@ -59,57 +39,18 @@ def ejecutar(archivo_entrada, carpeta_salida='transformados'):
             'Servicios de Alimentacisn': 'Servicios de Alimentacion',
             'Centros de diversisn': 'Centros de diversion'
         })
-        
-        print(f"[INFO] Correcciones aplicadas")
-        
-        # Conversión de tipos (según txt original)
+
+        # Conversión de tipos
         df['Codigo Ecom'] = df['Codigo Ecom'].astype(str)
         df['Documento'] = df['Documento'].astype(str)
         df['Exhibidor'] = df['Exhibidor'].astype(str)
         df['Cod.Asesor'] = df['Cod.Asesor'].astype(str)
-        
-        # Formatear Codigo Ecom con padding de ceros (como en aplicación original)
-        # Solo aplicar padding a códigos numéricos que no empiezan con "2000"
-        def format_codigo_ecom(codigo):
-            codigo = str(codigo).strip()
-            # Si empieza con "2000" (12 dígitos), no aplicar padding
-            if codigo.startswith('2000'):
-                return codigo
-            # Si es numérico y menor a 8 dígitos, aplicar padding a 8 dígitos (no 9)
-            try:
-                num = int(codigo)
-                if len(codigo) <= 8:
-                    return codigo.zfill(8)
-            except:
-                pass
-            return codigo
-        
-        df['Codigo Ecom'] = df['Codigo Ecom'].apply(format_codigo_ecom)
-        
-        print(f"[INFO] Codigo Ecom formateado con padding")
-        
-        # Formatear fecha (según txt original)
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
         df['Fecha'] = df['Fecha'].dt.strftime('%d-%m-%Y')
-        # Reemplazar 'NaT' por cadena vacía si existen valores nulos
-        df['Fecha'] = df['Fecha'].replace('NaT', '')
-        
-        print(f"[INFO] Conversiones de tipo aplicadas")
-        
-        # Guardar resultado
-        archivo_salida = os.path.join(carpeta_salida, 'maestra_clientes.csv')
-        os.makedirs(carpeta_salida, exist_ok=True)
-        # Usar lineterminator='\r\n' para saltos de línea Windows (CRLF)
-        df.to_csv(archivo_salida, index=False, encoding='utf-8', lineterminator='\r\n')
-        
-        print(f"[OK] Archivo guardado: {archivo_salida}")
-        print(f"[OK] Registros procesados: {len(df)}")
-        
-        return True
-        
+
+        df.to_csv(archivo_salida, index=False, encoding="utf-8")
+        print(f"📁 Archivo transformado guardado en: {archivo_salida}")
+    
     except Exception as e:
-        print(f"\n[ERROR] Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise
+        print(f"❌ Error durante el procesamiento: {e}")
 

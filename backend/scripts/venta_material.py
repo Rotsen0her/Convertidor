@@ -1,16 +1,8 @@
 import pandas as pd
 import os
 
-def ejecutar(archivo_entrada, mes, carpeta_salida='transformados'):
-    """
-    Procesa un archivo de ventas por material
-    
-    Args:
-        archivo_entrada: Ruta al archivo Excel/CSV de entrada
-        mes: Mes de las ventas
-        carpeta_salida: Carpeta donde guardar el archivo transformado
-    """
-    print("\n[INFO] Procesamiento: Informe Venta x Material x Cliente")
+def ejecutar(archivo_entrada, mes, carpeta_salida):
+    print("\n📦 Procesamiento: Informe Venta x Material x Cliente")
 
     os.makedirs(carpeta_salida, exist_ok=True)
     archivo_salida = os.path.join(carpeta_salida, "ventas_mes.csv")
@@ -18,70 +10,31 @@ def ejecutar(archivo_entrada, mes, carpeta_salida='transformados'):
     try:
         extension = os.path.splitext(archivo_entrada)[1].lower()
 
-        # Lectura según extensión (solo .xlsx y .csv soportados)
-        if extension == ".xlsx":
-            df = pd.read_excel(archivo_entrada, engine="openpyxl", dtype={'Cliente': str, 'Documento': str})
-        elif extension == ".csv":
-            # Intentar múltiples encodings para CSV (robustez)
-            encodings_to_try = ['latin1', 'utf-8', 'cp1252', 'iso-8859-1']
-            df = None
-            last_error = None
-            
-            for encoding in encodings_to_try:
-                try:
-                    print(f"[INFO] Intentando leer CSV con encoding: {encoding}")
-                    df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding=encoding, engine="python")
-                    print(f"[OK] Archivo leído correctamente con encoding: {encoding}")
-                    break
-                except (UnicodeDecodeError, Exception) as e:
-                    last_error = e
-                    continue
-            
-            if df is None:
-                raise ValueError(f"❌ No se pudo leer el archivo CSV con ningún encoding probado. Último error: {last_error}")
+        # Lectura
+        if extension == ".csv":
+            df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding = 'latin1' , engine="python")
         else:
-            raise ValueError(f"❌ Formato no soportado: {extension}. Por favor, convierta el archivo a .xlsx o .csv en Excel antes de subirlo.")
+            raise ValueError("Formato no soportado.")
 
-        print(f"\n[INFO] Datos cargados: {len(df)} filas, {len(df.columns)} columnas")
-        
-        # LIMPIEZA MÍNIMA: solo eliminar header duplicado si existe
-        if len(df) > 0:
-            headers = df.columns.astype(str).tolist()
-            first_row = df.iloc[0].astype(str).tolist()
-            if first_row == headers:
-                df = df.iloc[1:].reset_index(drop=True)
-                print(f"[INFO] Primera fila era header duplicado, eliminada")
-        
-        # TRANSFORMACIÓN DE VENTAS (según txt original)
-        print(f"\n[INFO] Aplicando transformaciones...")
+        # Renombrar columnas
+        df = df.rename(columns={'Razon Soc': 'Razon Social',
+                        'Cant. Ped.': 'Cant. pedida',
+                        'Cant. Dev.': 'Cant. devuelta',
+                        'Cant. Neta': 'Cantidad neta',
+                        'Vta. - IVA': 'Venta - IVA',
+                        'SubMarca': 'Sub marca',
+                        'SubLinea': 'Sub linea',
+                        'Sub Categoria': 'Sub categoria',
+                        })
 
-        # Renombrar columnas (según txt original)
-        df = df.rename(columns={
-            'Razon Soc': 'Razon Social',
-            'Cant. Ped.': 'Cant. pedida',
-            'Cant. Dev.': 'Cant. devuelta',
-            'Cant. Neta': 'Cantidad neta',
-            'Vta. - IVA': 'Venta - IVA',
-            'SubMarca': 'Sub marca',
-            'SubLinea': 'Sub linea',
-            'Sub Categoria': 'Sub categoria',
-        })
-        print(f"[INFO] Columnas renombradas")
+        # Filtrado de columnas
+        df = df[['Cliente', 'Nombre', 'Razon Social', 'Documento','Barrio','Nombre Segmento','Producto', 'Nombre.1','Cant. pedida', 
+                'Cant. devuelta', 'Cantidad neta', 'IVA','Venta - IVA','Marca', 'Sub marca','Linea', 'Sub linea', 'Categoria', 'Sub categoria', 
+                'Negocio','Vendedor', 'Ciudad']].copy()
 
-        # Filtrado de columnas (según txt original)
-        columnas_requeridas = ['Cliente', 'Nombre', 'Razon Social', 'Documento', 'Barrio', 'Nombre Segmento',
-                               'Producto', 'Nombre.1', 'Cant. pedida', 'Cant. devuelta', 'Cantidad neta',
-                               'IVA', 'Venta - IVA', 'Marca', 'Sub marca', 'Linea', 'Sub linea',
-                               'Categoria', 'Sub categoria', 'Negocio', 'Vendedor', 'Ciudad']
-        
-        df = df[columnas_requeridas].copy()
-        print(f"[INFO] Columnas seleccionadas: {len(df.columns)} columnas")
-        
-        # Filtrar vendedor (según txt original)
         df = df[df['Vendedor'] != '99 - SERVICIOS']
-        print(f"[INFO] Filas filtradas (vendedor): {len(df)} filas")
 
-        # Reemplazos (según txt original)
+        # Reemplazos
         reemplazos = {
             'Categoria': {
                 '10-Café': '10-Cafe',
@@ -132,7 +85,7 @@ def ejecutar(archivo_entrada, mes, carpeta_salida='transformados'):
                 '0090-Cremas dechocolate': '0090-Cremas de chocolate',
                 '0521-Cápsulas': '0521-Capsulas',
             },
-            'Sub linea': {
+            'Sub linea':{
                 '0161-Sólidas sin agregados': '0161-Solidas sin agregados',
                 '0160-Sólidas con agregados': '0160-Solidas con agregados',
                 '0171-Grageadoscrocantes': '0171-Grageados crocantes',
@@ -150,53 +103,27 @@ def ejecutar(archivo_entrada, mes, carpeta_salida='transformados'):
                 '056-OtrosDistribuidos': '056-Otros Distribuidos',
                 '277-Cápsulas Nutricional': '277-Capsulas Nutricional'
             }
+        
         }
 
         for columna, valores in reemplazos.items():
             df[columna] = df[columna].replace(valores)
-        
-        print(f"[INFO] Reemplazos aplicados")
 
-        # Insertar mes (según txt original)
+        # Insertar mes
         df.insert(1, 'Mes', mes)
-        print(f"[INFO] Mes insertado: {mes}")
 
-        # Verificar que tenemos datos antes de continuar
-        if len(df) == 0:
-            print("[ADVERTENCIA] No hay datos después del filtrado. Creando archivo vacío...")
-            df.to_csv(archivo_salida, index=False, encoding='latin1')
-            print(f"[INFO] Archivo vacío guardado en: {archivo_salida}")
-            return
-
-        # División de columnas (según txt original)
-        df[['Cod. Asesor', 'Asesor']] = df['Vendedor'].str.split('-', n=1, expand=True)
-        df[['Cod. Ciudad', 'Ciudad']] = df['Ciudad'].str.split('-', n=1, expand=True)
+        # División de columnas
+        df[['Cod. Asesor', 'Asesor']] = df['Vendedor'].str.split('-', expand=True)
+        df[['Cod. Ciudad', 'Ciudad']] = df['Ciudad'].str.split('-', expand=True)
         df.drop(columns=['Cod. Ciudad', 'Vendedor'], inplace=True)
-        
-        print(f"[INFO] Columnas divididas")
 
-        # Conversión columna Venta - IVA a numero entero (según txt original)
+        # Conversion columna Venta - IVA a numero entero
         df['Venta - IVA'] = pd.to_numeric(df['Venta - IVA'], errors='coerce').fillna(0).astype(int)
-        print(f"[INFO] Columna 'Venta - IVA' convertida a entero")
 
-        # Formatear Cliente con padding de ceros (10 dígitos) para archivos CSV
-        # Esto asegura que Excel no convierta el campo a número
-        df['Cliente'] = df['Cliente'].astype(str).str.zfill(10)
-        
-        # Formatear Cod. Asesor: agregar espacio al final (formato aplicación original)
-        df['Cod. Asesor'] = df['Cod. Asesor'].astype(str).str.strip() + ' '
-        
-        print(f"[INFO] Cliente formateado con padding (10 dígitos)")
 
-        # Guardar archivo (según txt original: encoding latin1)
+        # Guardar archivo
         df.to_csv(archivo_salida, index=False, encoding='latin1')
-        print(f"[OK] Archivo guardado: {archivo_salida}")
-        print(f"[OK] Registros procesados: {len(df)}")
-        
-        return True
+        print(f"📁 Archivo transformado guardado en: {archivo_salida}")
 
     except Exception as e:
-        print(f"\n[ERROR] Error durante el procesamiento: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+        print(f"❌ Error durante el procesamiento: {e}")
