@@ -1,15 +1,23 @@
 #!/bin/bash
-# Script de actualización rápida para aplicación desplegada
+# Script de actualización para múltiples servicios Docker
 set -e  # Salir si hay error
 
-echo "🚀 Actualizando Convertidor..."
+echo "🚀 Actualizando TODOS los servicios..."
 
-# Backup de archivos críticos antes del pull
+# --- 1. Definir directorios de servicios ---
+# Añade más carpetas aquí en el futuro.
+# Se desplegarán en este orden.
+SERVICE_DIRS=(
+    "nginx-proxy"  # El proxy primero
+    "."            # La aplicación principal (de última)
+)
+
+# --- 2. Backup de archivos críticos ---
 echo "💾 Backup de configuración..."
-[ -f "nginx/default.conf" ] && cp nginx/default.conf nginx/default.conf.backup
+# Solo hacemos backup del .env de la app principal
 [ -f ".env" ] && cp .env .env.backup
 
-# Actualizar código desde GitHub
+# --- 3. Actualizar código desde GitHub ---
 echo "📥 Obteniendo cambios desde GitHub..."
 
 # Verificar si hay un merge en curso y abortarlo
@@ -23,8 +31,8 @@ fi
 echo "🧹 Limpiando archivos generados automáticamente..."
 git checkout -- package-lock.json 2>/dev/null || true
 
-# Guardar cambios locales solo de archivos críticos (.env y nginx)
-git stash push -m "deploy-backup" .env nginx/default.conf 2>/dev/null || echo "✓ Sin cambios críticos locales"
+# Guardar .env de la app principal
+git stash push -m "deploy-backup" .env 2>/dev/null || echo "✓ Sin .env local que guardar"
 
 # Pull desde GitHub
 echo "⬇️  Descargando cambios..."
@@ -34,18 +42,18 @@ if ! git pull origin main; then
     exit 1
 fi
 
-# Restaurar configuración local si existe
+# Restaurar .env
 if git stash list | grep -q "deploy-backup"; then
-    git stash pop 2>/dev/null || echo "✓ Configuración local restaurada"
+    git stash pop 2>/dev/null || echo "✓ .env local restaurado"
 fi
 
-# Instalar/actualizar dependencias si package.json cambió
+# --- 4. Build de Frontend (si es necesario) ---
+# Esto se ejecuta en el directorio raíz ('.')
 if git diff HEAD@{1} --name-only | grep -q "package.json"; then
     echo "📦 Actualizando dependencias npm..."
     npm install
 fi
 
-# Compilar Tailwind CSS solo si hay cambios en frontend
 if git diff HEAD@{1} --name-only | grep -qE "(tailwind|\.css|templates/|package\.json)"; then
     echo "🎨 Compilando Tailwind CSS..."
     npm run build-css
@@ -53,45 +61,35 @@ else
     echo "⏭️  CSS sin cambios"
 fi
 
-# Reiniciar solo contenedores necesarios (sin rebuild completo)
-echo "🔄 Reiniciando servicios..."
+# --- 5. Reiniciar TODOS los servicios Docker ---
+echo "🔄 Reiniciando servicios Docker en orden..."
 
-# Detectar qué cambió para reiniciar solo lo necesario
-BACKEND_CHANGED=$(git diff HEAD@{1} --name-only | grep -E "^backend/" || true)
-NGINX_CHANGED=$(git diff HEAD@{1} --name-only | grep -E "^nginx/" || true)
-
-if [ -n "$BACKEND_CHANGED" ]; then
-    echo "   ↻ Backend modificado, reiniciando..."
-    docker compose restart backend
-else
-    echo "   ✓ Backend sin cambios"
-fi
-
-if [ -n "$NGINX_CHANGED" ]; then
-    echo "   ↻ Nginx modificado, reiniciando..."
-    
-    # Restaurar SSL si se sobrescribió
-    if [ -f "nginx/default.conf.backup" ]; then
-        if ! grep -q "ssl_certificate" nginx/default.conf; then
-            echo "   ⚠️  Restaurando config SSL..."
-            mv nginx/default.conf.backup nginx/default.conf
+for dir in "${SERVICE_DIRS[@]}"; do
+    echo "--- Actualizando servicios en: $dir ---"
+    ( # Usar un subshell para no cambiar el directorio actual del script
+        cd "$dir"
+        
+        if [ "$dir" = "." ]; then
+            # App principal: reconstruir el backend si es necesario
+            echo "   (Reconstruyendo app principal...)"
+            docker compose up -d --build --remove-orphans
+        else
+            # Otros servicios (como NPM): solo 'up' (pull de imagen nueva)
+            echo "   (Actualizando servicio...)"
+            docker compose up -d --remove-orphans
         fi
-    fi
-    
-    docker compose restart nginx
-else
-    echo "   ✓ Nginx sin cambios"
-fi
+    )
+done
 
-# Limpiar backups si todo está bien
-[ -f "nginx/default.conf.backup" ] && rm -f nginx/default.conf.backup
+# --- 6. Limpieza ---
 [ -f ".env.backup" ] && rm -f .env.backup
 
 echo ""
 echo "✅ Actualización completada!"
-echo "📊 Estado de servicios:"
-docker compose ps
+echo "📊 Estado de servicios (de la app principal):"
+docker compose ps  # Esto solo mostrará los servicios del compose en '.'
 
 echo ""
 echo "🌐 Aplicación: https://luziia.cloud"
-echo "🔍 Ver logs: docker compose logs -f backend"
+echo "🔍 Ver logs (backend): docker compose logs -f backend"
+echo "🔍 Ver logs (proxy): docker compose -f nginx-proxy/docker-compose.yml logs -f"
