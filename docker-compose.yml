@@ -1,21 +1,44 @@
+# --- Definiciones Reutilizables (Mejores Prácticas) ---
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-limits: &default-limits
+  deploy:
+    resources:
+      limits:
+        cpus: '1'
+        memory: 1G
+
 services:
+  # --- 1. APLICACIÓN BACKEND ---
   backend:
     build: ./backend
     container_name: convertidor_backend
     restart: unless-stopped
+    logging: *default-logging  # <-- Mejor práctica aplicada
+    <<: *default-limits       # <-- Mejor práctica aplicada
     env_file: .env
     command: ["/app/start_gunicorn.sh"]
     volumes:
       - ./backend:/app
     expose:
-      - "8000"
+      - "8000" # Documenta que el puerto interno es 8000
     depends_on:
       - db
+    networks:
+      - app-internal  # Red para hablar con la BD
+      - proxy-global  # Red para que NPM lo encuentre
 
+  # --- 2. BASE DE DATOS ---
   db:
     image: mysql:8.0
     container_name: convertidor_db
     restart: unless-stopped
+    logging: *default-logging  # <-- Mejor práctica aplicada
+    <<: *default-limits       # <-- Mejor práctica aplicada
     env_file: .env
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -25,20 +48,19 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./zafiro_bi.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - app-internal  # Solo en la red interna, totalmente aislada
 
-  nginx:
-    build: ./nginx
-    container_name: convertidor_nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./backend/static:/var/www/convertidor/static
-      - ./nginx/certbot/conf:/etc/letsencrypt
-      - ./nginx/certbot/www:/var/www/certbot
-    depends_on:
-      - backend
+# --- El servicio 'nginx' manual ha sido eliminado ---
 
+# --- VOLÚMENES PERSISTENTES ---
 volumes:
   mysql_data:
+  # Tu volumen de BD está seguro y no se ha tocado
+
+# --- REDES ---
+networks:
+  app-internal:
+    driver: bridge # Nueva red interna solo para esta app
+  proxy-global:
+    external: true # Se conecta a la red externa creada por NPM
