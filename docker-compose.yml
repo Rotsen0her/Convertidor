@@ -18,27 +18,27 @@ services:
     build: ./backend
     container_name: convertidor_backend
     restart: unless-stopped
-    logging: *default-logging  # <-- Mejor práctica aplicada
-    <<: *default-limits       # <-- Mejor práctica aplicada
+    logging: *default-logging
+    <<: *default-limits
     env_file: .env
     command: ["/app/start_gunicorn.sh"]
     volumes:
       - ./backend:/app
     expose:
-      - "8000" # Documenta que el puerto interno es 8000
+      - "8000"
     depends_on:
       - db
     networks:
-      - app-internal  # Red para hablar con la BD
-      - proxy-global  # Red para que NPM lo encuentre
+      - app-internal
+      - proxy-global  # <-- Se conecta a la red del proxy
 
   # --- 2. BASE DE DATOS ---
   db:
     image: mysql:8.0
     container_name: convertidor_db
     restart: unless-stopped
-    logging: *default-logging  # <-- Mejor práctica aplicada
-    <<: *default-limits       # <-- Mejor práctica aplicada
+    logging: *default-logging
+    <<: *default-limits
     env_file: .env
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -49,18 +49,17 @@ services:
       - mysql_data:/var/lib/mysql
       - ./zafiro_bi.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
-      - app-internal  # Solo en la red interna, totalmente aislada
+      - app-internal # <-- Aislada
 
-# --- El servicio 'nginx' manual ha sido eliminado ---
+# --- EL SERVICIO 'nginx' MANUAL SE ELIMINÓ DE AQUÍ ---
 
 # --- VOLÚMENES PERSISTENTES ---
 volumes:
   mysql_data:
-  # Tu volumen de BD está seguro y no se ha tocado
 
 # --- REDES ---
 networks:
   app-internal:
-    driver: bridge # Nueva red interna solo para esta app
+    driver: bridge
   proxy-global:
-    external: true # Se conecta a la red externa creada por NPM
+    external: true # <-- Se conecta a la red externa
