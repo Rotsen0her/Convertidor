@@ -1,7 +1,7 @@
 # =========================================
 # � ARCHIVOS SENSIBLES (NUNCA SUBIR)
 # =========================================
-.env
+**/.env
 .env.local
 .env.production
 *.pem

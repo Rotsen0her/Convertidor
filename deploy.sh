@@ -9,6 +9,7 @@ echo "🚀 Actualizando TODOS los servicios..."
 # Se desplegarán en este orden.
 SERVICE_DIRS=(
     "nginx-proxy"  # El proxy primero
+    "wordpress"    # Luego WordPress
     "."            # La aplicación principal (de última)
 )
 
