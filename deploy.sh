@@ -9,14 +9,18 @@ echo "🚀 Actualizando TODOS los servicios..."
 # Se desplegarán en este orden.
 SERVICE_DIRS=(
     "nginx-proxy"  # El proxy primero
-    "wordpress"    # Luego WordPress
+    "postgres"     # Base de datos
+    "n8n"          # Automatización
+    "wordpress"    # WordPress
     "."            # La aplicación principal (de última)
 )
 
 # --- 2. Backup de archivos críticos ---
 echo "💾 Backup de configuración..."
-# Solo hacemos backup del .env de la app principal
+# Backup de .env de la app principal y servicios críticos
 [ -f ".env" ] && cp .env .env.backup
+[ -f "n8n/.env" ] && cp n8n/.env n8n/.env.backup
+[ -f "postgres/.env" ] && cp postgres/.env postgres/.env.backup
 
 # --- 3. Actualizar código desde GitHub ---
 echo "📥 Obteniendo cambios desde GitHub..."
@@ -84,6 +88,8 @@ done
 
 # --- 6. Limpieza ---
 [ -f ".env.backup" ] && rm -f .env.backup
+[ -f "n8n/.env.backup" ] && rm -f n8n/.env.backup
+[ -f "postgres/.env.backup" ] && rm -f postgres/.env.backup
 
 echo ""
 echo "✅ Actualización completada!"
@@ -92,5 +98,10 @@ docker compose ps  # Esto solo mostrará los servicios del compose en '.'
 
 echo ""
 echo "🌐 Aplicación: https://luziia.cloud"
-echo "🔍 Ver logs (backend): docker compose logs -f backend"
+echo "� N8N: https://${N8N_HOST:-tu-dominio-n8n.com}"
+echo "🗄️  PostgreSQL: localhost:5432"
+echo ""
+echo "�🔍 Ver logs (backend): docker compose logs -f backend"
+echo "🔍 Ver logs (n8n): docker compose -f n8n/docker-compose.yml logs -f n8n"
+echo "🔍 Ver logs (postgres): docker compose -f postgres/docker-compose.yml logs -f postgres"
 echo "🔍 Ver logs (proxy): docker compose -f nginx-proxy/docker-compose.yml logs -f"
