@@ -51,8 +51,6 @@ services:
     networks:
       - app-internal # <-- Aislada
 
-# --- EL SERVICIO 'nginx' MANUAL SE ELIMINÓ DE AQUÍ ---
-
 # --- VOLÚMENES PERSISTENTES ---
 volumes:
   mysql_data:
@@ -62,4 +60,4 @@ networks:
   app-internal:
     driver: bridge
   proxy-global:
-    external: true # <-- Se conecta a la red externa
+    external: true 

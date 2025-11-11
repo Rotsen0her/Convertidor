@@ -1,0 +1,63 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  redisn8n:
+    image: redis:6-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+      
+  n8n:
+    image: n8nio/n8n:1.118.1
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      redisn8n:
+        condition: service_healthy
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    environment:
+      QUEUE_BULL_REDIS_HOST: redisn8n
+      QUEUE_BULL_REDIS_PORT: 6379
+      N8N_HOST: ${N8N_HOST}
+      WEBHOOK_URL: https://${N8N_HOST}/
+      GENERIC_TIMEZONE: America/Bogota
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN: "true"
+    networks:
+      - default
+      - proxy-global
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "--tries=1", "http://localhost:5678/healthz"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 5G
+
+networks:
+  default:
+  proxy-global:
+    external: true
