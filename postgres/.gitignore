@@ -11,6 +11,7 @@ redis_data/
 
 # Logs
 *.log
+log/
 
 # Environment file with passwords (keep .env.example)
 .env
@@ -19,3 +20,6 @@ redis_data/
 *.tmp
 *.swp
 *~
+
+# NO ignorar postgresql.conf (es parte de la configuración del proyecto)
+!postgresql.conf
