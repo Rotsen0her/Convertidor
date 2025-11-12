@@ -8,13 +8,20 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5432:5432" 
     restart: unless-stopped
     logging: *default-logging
     volumes:
       - ./db_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d  
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_SHARED_BUFFERS: ${POSTGRES_SHARED_BUFFERS:-256MB}
+      POSTGRES_WORK_MEM: ${POSTGRES_WORK_MEM:-16MB}
+      POSTGRES_MAINTENANCE_WORK_MEM: ${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}
+      POSTGRES_EFFECTIVE_CACHE_SIZE: ${POSTGRES_EFFECTIVE_CACHE_SIZE:-512MB}
     networks:
       - default
       - proxy-global
@@ -26,8 +33,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 1G
+          cpus: '2'      
+          memory: 2G     
+        reservations:
+          memory: 512M
 
 networks:
   default:

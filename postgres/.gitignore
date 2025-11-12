@@ -1,0 +1,21 @@
+# PostgreSQL data directory
+db_data/
+
+# Backup files
+*.sql.backup
+backup_*.sql
+*.dump
+
+# Redis data (si usas Redis con n8n)
+redis_data/
+
+# Logs
+*.log
+
+# Environment file with passwords (keep .env.example)
+.env
+
+# Temporary files
+*.tmp
+*.swp
+*~
