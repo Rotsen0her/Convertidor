@@ -498,7 +498,7 @@ def transform_exhibidores():
 @admin_required
 def carga_datos():
     """Panel de carga inteligente de archivos a PostgreSQL vía n8n"""
-    return render_template('carga_datos.html')
+    return render_template('carga_datos.html', flujos=FLUJOS_N8N)
 
 @app.route('/analizar-archivo', methods=['POST'])
 @admin_required
