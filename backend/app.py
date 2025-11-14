@@ -12,6 +12,8 @@ from config import Config
 
 # Importar scripts de transformación
 from scripts import clientes, venta_material, unir_ventas, exhibidores
+from config_flujos import FLUJOS_N8N, detectar_flujo, validar_columnas
+import requests
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -490,6 +492,167 @@ def transform_union():
 @login_required
 def transform_exhibidores():
     return procesar_archivo('exhibidores')
+
+# RUTAS DE CARGA A POSTGRESQL (SOLO ADMIN)
+@app.route('/carga-datos')
+@admin_required
+def carga_datos():
+    """Panel de carga inteligente de archivos a PostgreSQL vía n8n"""
+    return render_template('carga_datos.html')
+
+@app.route('/analizar-archivo', methods=['POST'])
+@admin_required
+def analizar_archivo():
+    """Analiza un archivo y detecta automáticamente el flujo de n8n correspondiente"""
+    file = None
+    try:
+        if 'archivo' not in request.files:
+            return jsonify({'success': False, 'error': 'No se proporcionó archivo'}), 400
+        
+        file = request.files['archivo']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Nombre de archivo vacío'}), 400
+        
+        # Leer archivo (Excel o CSV) - solo primeras 5 filas para análisis
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file, nrows=5)
+        elif file.filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(file, nrows=5)
+        else:
+            return jsonify({'success': False, 'error': 'Formato no soportado. Use CSV o XLSX'}), 400
+        
+        # Detectar flujo basado en columnas
+        columnas = df.columns.tolist()
+        flujo_detectado = detectar_flujo(columnas)
+        
+        # Limpiar DataFrame de memoria
+        del df
+        
+        if not flujo_detectado:
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo identificar el tipo de archivo automáticamente',
+                'columnas_encontradas': columnas,
+                'flujos_disponibles': {
+                    nombre: {
+                        'descripcion': config['descripcion'],
+                        'columnas_requeridas': config['columnas_requeridas']
+                    }
+                    for nombre, config in FLUJOS_N8N.items()
+                }
+            }), 400
+        
+        config_flujo = FLUJOS_N8N[flujo_detectado]
+        
+        return jsonify({
+            'success': True,
+            'flujo': flujo_detectado,
+            'nombre': config_flujo['nombre'],
+            'descripcion': config_flujo['descripcion'],
+            'columnas_detectadas': columnas,
+            'columnas_requeridas': config_flujo['columnas_requeridas']
+        })
+        
+    except Exception as e:
+        print(f"[ERROR] Error analizando archivo: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Error al analizar: {str(e)}'}), 500
+    finally:
+        # Limpiar archivo de memoria
+        if file:
+            try:
+                file.close()
+            except:
+                pass
+
+@app.route('/enviar-a-n8n', methods=['POST'])
+@admin_required
+def enviar_a_n8n():
+    """Envía los datos del archivo al webhook de n8n correspondiente"""
+    file = None
+    df = None
+    try:
+        if 'archivo' not in request.files:
+            return jsonify({'success': False, 'error': 'No se proporcionó archivo'}), 400
+        
+        file = request.files['archivo']
+        flujo = request.form.get('flujo')
+        
+        if not flujo or flujo not in FLUJOS_N8N:
+            return jsonify({'success': False, 'error': 'Flujo no válido'}), 400
+        
+        # Leer archivo completo
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        elif file.filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(file)
+        else:
+            return jsonify({'success': False, 'error': 'Formato no soportado'}), 400
+        
+        # Validar columnas
+        config_flujo = FLUJOS_N8N[flujo]
+        columnas_faltantes = validar_columnas(df.columns.tolist(), config_flujo['columnas_requeridas'])
+        
+        if columnas_faltantes:
+            return jsonify({
+                'success': False,
+                'error': f'Faltan columnas requeridas: {", ".join(columnas_faltantes)}'
+            }), 400
+        
+        # Convertir a JSON y enviar a n8n
+        datos = df.to_dict(orient='records')
+        webhook_url = config_flujo['webhook_url']
+        
+        print(f"[INFO] Enviando {len(datos)} registros a {config_flujo['nombre']}")
+        print(f"[INFO] Webhook: {webhook_url}")
+        
+        response = requests.post(
+            webhook_url,
+            json={
+                'archivo': file.filename,
+                'registros': len(datos),
+                'usuario': session.get('usuario'),
+                'datos': datos
+            },
+            timeout=300  # 5 minutos timeout
+        )
+        
+        if response.status_code == 200:
+            return jsonify({
+                'success': True,
+                'message': f'Datos enviados correctamente a {config_flujo["nombre"]}',
+                'registros_enviados': len(datos),
+                'flujo': flujo
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Error del webhook n8n: {response.status_code} - {response.text}'
+            }), 500
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Timeout: El webhook de n8n no respondió en 5 minutos'
+        }), 500
+    except Exception as e:
+        print(f"[ERROR] Error enviando a n8n: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Error al enviar: {str(e)}'}), 500
+    finally:
+        # Limpiar archivo y DataFrame de memoria
+        if df is not None:
+            try:
+                del df
+            except:
+                pass
+        if file:
+            try:
+                file.close()
+            except:
+                pass
 
 if __name__ == '__main__':
     app.run(debug=True)

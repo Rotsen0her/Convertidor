@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block title %}Carga de Datos a PostgreSQL{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center space-x-4">
+                    <a href="{{ url_for('index') }}" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <h1 class="text-2xl font-bold text-gray-900">
+                        <i class="fas fa-database mr-2 text-blue-600"></i>
+                        Carga de Datos a PostgreSQL
+                    </h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">
+                        <i class="fas fa-user mr-1"></i>
+                        {{ session.usuario }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="text-sm text-red-600 hover:text-red-800">
+                        <i class="fas fa-sign-out-alt mr-1"></i>
+                        Cerrar sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        
+        <!-- Instrucciones -->
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-info-circle text-blue-400 text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800">Detección Automática Inteligente</h3>
+                    <div class="mt-2 text-sm text-blue-700">
+                        <p>Simplemente sube tu archivo CSV o XLSX. El sistema detectará automáticamente el tipo de datos analizando las columnas y lo enviará al flujo correcto de n8n para procesamiento.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flujos disponibles -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-list-check mr-2 text-gray-600"></i>
+                Flujos Disponibles
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for flujo_id, flujo in flujos.items() %}
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-{{ flujo.icon }} text-blue-600 text-xl mr-2"></i>
+                        <h3 class="font-medium text-gray-900">{{ flujo.nombre }}</h3>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-3">{{ flujo.descripcion }}</p>
+                    <div class="text-xs">
+                        <p class="font-medium text-gray-700 mb-1">Columnas requeridas:</p>
+                        <ul class="list-disc list-inside text-gray-600 space-y-0.5">
+                            {% for col in flujo.columnas_requeridas %}
+                            <li>{{ col }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="font-medium text-gray-700 mt-2 mb-1">Tabla destino:</p>
+                        <code class="text-xs bg-gray-100 px-2 py-1 rounded">{{ flujo.tabla_destino }}</code>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Área de carga -->
+        <div class="bg-white shadow rounded-lg p-6">
+            
+            <!-- Drop zone -->
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-500 transition-colors cursor-pointer"
+                 id="drop-zone"
+                 ondragover="handleDragOver(event)"
+                 ondragleave="handleDragLeave(event)"
+                 ondrop="handleDrop(event)"
+                 onclick="document.getElementById('file-input').click()">
+                
+                <input type="file" id="file-input" accept=".csv,.xlsx,.xls" class="hidden" onchange="handleFileSelect(event)">
+                
+                <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
+                
+                <div class="mt-6">
+                    <span class="text-lg text-blue-600 hover:text-blue-800 font-medium">Seleccionar archivo</span>
+                    <span class="text-gray-500"> o arrastrarlo aquí</span>
+                </div>
+                
+                <p class="text-sm text-gray-500 mt-3">CSV o XLSX hasta 1GB</p>
+                <p class="text-xs text-gray-400 mt-1">
+                    <i class="fas fa-magic mr-1"></i>
+                    Detección automática del tipo de datos
+                </p>
+            </div>
+
+            <!-- Área de análisis (oculta inicialmente) -->
+            <div id="analysis-area" class="hidden mt-6">
+                
+                <!-- Información del archivo -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-file-excel text-green-500 text-3xl"></i>
+                            <div>
+                                <p class="font-medium text-gray-900" id="file-name-display"></p>
+                                <p class="text-sm text-gray-500" id="file-size-display"></p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="resetUpload()" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Indicador de análisis -->
+                <div id="analyzing-indicator" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center">
+                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                        <span class="text-blue-800">Analizando estructura del archivo...</span>
+                    </div>
+                </div>
+
+                <!-- Resultado de detección -->
+                <div id="detection-result"></div>
+
+                <!-- Botones de acción -->
+                <div id="action-buttons" class="hidden mt-6 flex space-x-3">
+                    <button type="button" 
+                            id="confirm-btn"
+                            onclick="confirmarYEnviar()"
+                            class="flex-1 flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span id="confirm-text">Confirmar y procesar</span>
+                        <div id="confirm-spinner" class="hidden ml-3">
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        </div>
+                    </button>
+                    <button type="button" 
+                            onclick="resetUpload()"
+                            class="px-6 py-3 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        <i class="fas fa-redo mr-2"></i>
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Área de mensajes -->
+        <div id="message-area" class="mt-6"></div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let selectedFile = null;
+    let detectedFlujo = null;
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            processFile(file);
+        }
+    }
+
+    function handleDragOver(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.classList.add('border-blue-500', 'bg-blue-50');
+    }
+
+    function handleDragLeave(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+    }
+
+    function handleDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+        
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            processFile(files[0]);
+        }
+    }
+
+    async function processFile(file) {
+        const validExtensions = ['.csv', '.xlsx', '.xls'];
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!validExtensions.includes(fileExtension)) {
+            showMessage('Solo se permiten archivos CSV o XLSX', 'error');
+            return;
+        }
+        
+        if (file.size > MAX_FILE_SIZE) {
+            showMessage(`El archivo excede el tamaño máximo de 1GB (${formatFileSize(file.size)})`, 'error');
+            return;
+        }
+        
+        selectedFile = file;
+        
+        document.getElementById('file-name-display').textContent = file.name;
+        document.getElementById('file-size-display').textContent = formatFileSize(file.size);
+        document.getElementById('drop-zone').classList.add('hidden');
+        document.getElementById('analysis-area').classList.remove('hidden');
+        document.getElementById('analyzing-indicator').classList.remove('hidden');
+        document.getElementById('detection-result').innerHTML = '';
+        document.getElementById('action-buttons').classList.add('hidden');
+        
+        await analizarArchivo(file);
+    }
+
+    async function analizarArchivo(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/analizar-archivo', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            document.getElementById('analyzing-indicator').classList.add('hidden');
+
+            if (result.detectado) {
+                detectedFlujo = result.flujo_id;
+                mostrarDeteccionExitosa(result);
+            } else {
+                mostrarDeteccionFallida(result);
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('analyzing-indicator').classList.add('hidden');
+            showMessage(`Error al analizar archivo: ${error.message}`, 'error');
+        }
+    }
+
+    function mostrarDeteccionExitosa(result) {
+        const html = `
+            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-5">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-base font-semibold text-green-800 mb-2">
+                            <i class="fas fa-magic mr-1"></i>
+                            Tipo de datos detectado correctamente
+                        </h3>
+                        <div class="bg-white border border-green-200 rounded-lg p-3 mb-3">
+                            <p class="font-bold text-green-900 text-lg">${result.flujo_nombre}</p>
+                            <p class="text-sm text-green-700 mt-1">${result.flujo_descripcion}</p>
+                        </div>
+                        <div class="text-sm text-green-700">
+                            <p class="font-medium mb-2">
+                                <i class="fas fa-table mr-1"></i>
+                                Columnas detectadas (${result.columnas_encontradas.length}):
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                ${result.columnas_encontradas.map(col => 
+                                    `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-mono">${col}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            <strong>Tabla destino:</strong> <code class="bg-blue-100 px-1 py-0.5 rounded">${result.tabla_destino || 'N/A'}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('detection-result').innerHTML = html;
+        document.getElementById('action-buttons').classList.remove('hidden');
+        showMessage('', '');
+    }
+
+    function mostrarDeteccionFallida(result) {
+        const html = `
+            <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-5">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-3xl"></i>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <h3 class="text-base font-semibold text-yellow-800 mb-2">No se pudo detectar el tipo de datos</h3>
+                        <div class="text-sm text-yellow-700 mb-3">
+                            <p class="mb-2">${result.mensaje}</p>
+                            <p class="font-medium">Columnas encontradas en el archivo:</p>
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                ${result.columnas.map(col => 
+                                    `<span class="bg-yellow-100 px-2 py-1 rounded text-xs font-mono">${col}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <p class="text-sm font-medium text-yellow-800 mb-2">Flujos disponibles y sus columnas:</p>
+                            ${Object.entries(result.flujos_disponibles).map(([id, flujo]) => `
+                                <div class="bg-white border border-yellow-200 rounded p-3 mb-2">
+                                    <p class="font-semibold text-gray-900 text-sm">${flujo.nombre}</p>
+                                    <p class="text-xs text-gray-600 mt-1">
+                                        <strong>Requiere:</strong> ${flujo.columnas_requeridas.join(', ')}
+                                    </p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('detection-result').innerHTML = html;
+        document.getElementById('action-buttons').classList.add('hidden');
+    }
+
+    async function confirmarYEnviar() {
+        if (!selectedFile || !detectedFlujo) {
+            showMessage('No hay archivo o flujo detectado', 'error');
+            return;
+        }
+
+        const confirmBtn = document.getElementById('confirm-btn');
+        const confirmText = document.getElementById('confirm-text');
+        const confirmSpinner = document.getElementById('confirm-spinner');
+        
+        confirmBtn.disabled = true;
+        confirmText.textContent = 'Enviando a n8n...';
+        confirmSpinner.classList.remove('hidden');
+
+        try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('flujo_id', detectedFlujo);
+
+            const response = await fetch('/enviar-a-n8n', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showMessage(`✓ ${result.mensaje}. Los datos se están procesando en segundo plano en n8n.`, 'success');
+                setTimeout(() => {
+                    resetUpload();
+                }, 4000);
+            } else {
+                throw new Error(result.error || 'Error desconocido');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            showMessage(`Error al enviar archivo: ${error.message}`, 'error');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmText.textContent = 'Confirmar y procesar';
+            confirmSpinner.classList.add('hidden');
+        }
+    }
+
+    function resetUpload() {
+        selectedFile = null;
+        detectedFlujo = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('drop-zone').classList.remove('hidden');
+        document.getElementById('analysis-area').classList.add('hidden');
+        document.getElementById('detection-result').innerHTML = '';
+        document.getElementById('action-buttons').classList.add('hidden');
+        showMessage('', '');
+    }
+
+    function showMessage(message, type) {
+        if (!message) {
+            document.getElementById('message-area').innerHTML = '';
+            return;
+        }
+
+        const messageArea = document.getElementById('message-area');
+        const configs = {
+            'success': {
+                bg: 'bg-green-50 border-green-400 text-green-800',
+                icon: 'fa-check-circle text-green-500'
+            },
+            'error': {
+                bg: 'bg-red-50 border-red-400 text-red-800',
+                icon: 'fa-exclamation-circle text-red-500'
+            },
+            'info': {
+                bg: 'bg-blue-50 border-blue-400 text-blue-800',
+                icon: 'fa-info-circle text-blue-500'
+            }
+        };
+        
+        const config = configs[type] || configs['info'];
+        
+        messageArea.innerHTML = `
+            <div class="border-l-4 ${config.bg} p-4 rounded">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas ${config.icon} text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">${message}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (type !== 'info') {
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 6000);
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+</script>
+{% endblock %}
