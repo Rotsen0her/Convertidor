@@ -573,11 +573,11 @@ def enviar_a_n8n():
     file = None
     df = None
     try:
-        if 'archivo' not in request.files:
+        if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No se proporcionó archivo'}), 400
         
-        file = request.files['archivo']
-        flujo = request.form.get('flujo')
+        file = request.files['file']
+        flujo = request.form.get('flujo_id')
         
         if not flujo or flujo not in FLUJOS_N8N:
             return jsonify({'success': False, 'error': 'Flujo no válido'}), 400
@@ -592,12 +592,12 @@ def enviar_a_n8n():
         
         # Validar columnas
         config_flujo = FLUJOS_N8N[flujo]
-        columnas_faltantes = validar_columnas(df.columns.tolist(), config_flujo['columnas_requeridas'])
+        validacion = validar_columnas(df.columns.tolist(), config_flujo)
         
-        if columnas_faltantes:
+        if not validacion['valido']:
             return jsonify({
                 'success': False,
-                'error': f'Faltan columnas requeridas: {", ".join(columnas_faltantes)}'
+                'error': validacion['mensaje']
             }), 400
         
         # Convertir a JSON y enviar a n8n
