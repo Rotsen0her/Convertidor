@@ -2,12 +2,13 @@
 Configuración de flujos de n8n para carga de datos a PostgreSQL
 Cada flujo define las columnas esperadas y su webhook
 """
+import os
 
 FLUJOS_N8N = {
     'metas_numericas': {
         'nombre': 'Metas Numéricas',
         'descripcion': 'Carga de metas mensuales por numérica y fuerza',
-        'webhook_url': 'https://n8n.luzzia.cloud/webhook-test/4409aa64-c2c2-46a1-95cc-f4e3ead65cce',
+        'webhook_url': os.environ.get('N8N_WEBHOOK_METAS_NUMERICAS'),
         'columnas_requeridas': ['Numerica', 'Meta'],
         'columnas_opcionales': ['Fuerza'],
         'tabla_destino': 'metas_numericas_mes',
@@ -16,7 +17,7 @@ FLUJOS_N8N = {
     'metas_asesores': {
         'nombre': 'Metas Negocios Asesores',
         'descripcion': 'Carga de presupuesto de negocios por asesor',
-        'webhook_url': 'https://n8n.luzzia.cloud/webhook-test/fb3569d9-0a89-4c45-a06f-403fbaff4878',
+        'webhook_url': os.environ.get('N8N_WEBHOOK_METAS_ASESORES'),
         'columnas_requeridas': ['Cod. Asesor', 'Presupuesto'],
         'columnas_opcionales': ['Negocio', 'Negocio 2'],
         'tabla_destino': 'metas_negocios_asesores_siz',
@@ -25,7 +26,7 @@ FLUJOS_N8N = {
     'ventas': {
         'nombre': 'Ventas Mensuales',
         'descripcion': 'Carga de datos de ventas por cliente y producto',
-        'webhook_url': 'https://n8n.luzzia.cloud/webhook-test/c8eb748c-ff9d-43b1-afbd-d09de827a724',
+        'webhook_url': os.environ.get('N8N_WEBHOOK_VENTAS'),
         'columnas_requeridas': ['Cliente', 'Mes', 'Producto', 'Venta - IVA'],
         'columnas_opcionales': ['Nombre', 'Razon Social', 'Documento', 'Barrio', 'Nombre Segmento', 
                                'Nombre.1', 'Cant. pedida', 'Cant. devuelta', 'Cantidad neta', 'IVA',
