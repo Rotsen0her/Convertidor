@@ -506,10 +506,10 @@ def analizar_archivo():
     """Analiza un archivo y detecta automáticamente el flujo de n8n correspondiente"""
     file = None
     try:
-        if 'archivo' not in request.files:
+        if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No se proporcionó archivo'}), 400
         
-        file = request.files['archivo']
+        file = request.files['file']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Nombre de archivo vacío'}), 400
         
@@ -523,34 +523,34 @@ def analizar_archivo():
         
         # Detectar flujo basado en columnas
         columnas = df.columns.tolist()
-        flujo_detectado = detectar_flujo(columnas)
+        flujo_id, flujo_config = detectar_flujo(columnas)
         
         # Limpiar DataFrame de memoria
         del df
         
-        if not flujo_detectado:
+        if not flujo_id:
             return jsonify({
-                'success': False,
-                'error': 'No se pudo identificar el tipo de archivo automáticamente',
-                'columnas_encontradas': columnas,
+                'detectado': False,
+                'mensaje': 'No se pudo identificar el tipo de archivo automáticamente',
+                'columnas': columnas,
                 'flujos_disponibles': {
                     nombre: {
+                        'nombre': config['nombre'],
                         'descripcion': config['descripcion'],
                         'columnas_requeridas': config['columnas_requeridas']
                     }
                     for nombre, config in FLUJOS_N8N.items()
                 }
-            }), 400
-        
-        config_flujo = FLUJOS_N8N[flujo_detectado]
+            })
         
         return jsonify({
-            'success': True,
-            'flujo': flujo_detectado,
-            'nombre': config_flujo['nombre'],
-            'descripcion': config_flujo['descripcion'],
-            'columnas_detectadas': columnas,
-            'columnas_requeridas': config_flujo['columnas_requeridas']
+            'detectado': True,
+            'flujo_id': flujo_id,
+            'flujo_nombre': flujo_config['nombre'],
+            'flujo_descripcion': flujo_config['descripcion'],
+            'columnas_encontradas': columnas,
+            'columnas_requeridas': flujo_config['columnas_requeridas'],
+            'tabla_destino': flujo_config.get('tabla_destino', 'N/A')
         })
         
     except Exception as e:
