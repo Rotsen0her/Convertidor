@@ -604,6 +604,12 @@ def enviar_a_n8n():
         datos = df.to_dict(orient='records')
         webhook_url = config_flujo['webhook_url']
         
+        if not webhook_url:
+            return jsonify({
+                'success': False,
+                'error': 'Webhook no configurado para este flujo'
+            }), 500
+        
         print(f"[INFO] Enviando {len(datos)} registros a {config_flujo['nombre']}")
         print(f"[INFO] Webhook: {webhook_url}")
         
@@ -626,21 +632,28 @@ def enviar_a_n8n():
                 'flujo': flujo
             })
         else:
+            print(f"[ERROR] Respuesta n8n: {response.status_code} - {response.text}")
             return jsonify({
                 'success': False,
-                'error': f'Error del webhook n8n: {response.status_code} - {response.text}'
+                'error': f'Error al procesar en n8n (código {response.status_code})'
             }), 500
             
     except requests.exceptions.Timeout:
         return jsonify({
             'success': False,
-            'error': 'Timeout: El webhook de n8n no respondió en 5 minutos'
+            'error': 'El procesamiento está tomando más tiempo del esperado. El proceso continuará en segundo plano.'
+        }), 500
+    except requests.exceptions.ConnectionError as e:
+        print(f"[ERROR] Error de conexión a n8n: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'No se pudo conectar con el servicio de procesamiento. Verifique la configuración.'
         }), 500
     except Exception as e:
         print(f"[ERROR] Error enviando a n8n: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'error': f'Error al enviar: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': 'Error inesperado al procesar el archivo. Contacte al administrador.'}), 500
     finally:
         # Limpiar archivo y DataFrame de memoria
         if df is not None:
