@@ -22,8 +22,7 @@ app.config.from_object(Config)
 # Cada usuario tendrá un archivo temporal con metadata JSON
 import json
 CACHE_DIR = os.path.join(tempfile.gettempdir(), 'convertidor_cache')
-if not os.path.exists(CACHE_DIR):
-    os.makedirs(CACHE_DIR, mode=0o755)
+os.makedirs(CACHE_DIR, mode=0o755, exist_ok=True)
 
 ALLOWED_EXTENSIONS = app.config['ALLOWED_EXTENSIONS']
 
