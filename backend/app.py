@@ -634,12 +634,15 @@ def enviar_a_n8n():
             timeout=900  # 15 minutos timeout para archivos grandes
         )
         
+        print(f"[INFO] Respuesta n8n - Status: {response.status_code}, Content-Type: {response.headers.get('content-type')}")
+        
         # Verificar si la respuesta es JSON
         try:
             response_data = response.json()
+            print(f"[INFO] JSON recibido de n8n: {response_data}")
         except ValueError:
             # Si no es JSON, probablemente es HTML o texto
-            print(f"[WARNING] Respuesta no-JSON de n8n: {response.text[:200]}")
+            print(f"[WARNING] Respuesta no-JSON de n8n: {response.text[:500]}")
             response_data = {}
         
         if response.status_code == 200:
