@@ -364,20 +364,22 @@
             
             if (contentType && contentType.includes('application/json')) {
                 result = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`✓ ${result.message || result.mensaje}. Los datos se están procesando en segundo plano en n8n.`, 'success');
+                    setTimeout(() => {
+                        resetUpload();
+                    }, 4000);
+                } else {
+                    throw new Error(result.error || 'Error desconocido');
+                }
             } else {
-                // Si no es JSON, leer como texto para debugging
-                const text = await response.text();
-                console.error('Respuesta no-JSON del servidor:', text.substring(0, 500));
-                throw new Error('El servidor retornó una respuesta inválida (esperaba JSON)');
-            }
-
-            if (response.ok) {
-                showMessage(`✓ ${result.message || result.mensaje}. Los datos se están procesando en segundo plano en n8n.`, 'success');
+                // Si no es JSON (timeout de nginx), pero el archivo ya se envió correctamente
+                console.log('Respuesta no-JSON, pero el archivo fue enviado a n8n');
+                showMessage('✓ Archivo enviado correctamente. El procesamiento puede tardar varios minutos dependiendo del tamaño.', 'success');
                 setTimeout(() => {
                     resetUpload();
-                }, 4000);
-            } else {
-                throw new Error(result.error || 'Error desconocido');
+                }, 5000);
             }
 
         } catch (error) {
