@@ -515,7 +515,22 @@ def analizar_archivo():
         
         # Leer archivo (Excel o CSV) - solo primeras 5 filas para análisis
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(file, nrows=5)
+            # Intentar múltiples encodings para CSVs
+            for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+                try:
+                    file.seek(0)
+                    df = pd.read_csv(file, nrows=5, encoding=encoding)
+                    print(f"[INFO] CSV leído con encoding: {encoding}")
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+            else:
+                return jsonify({
+                    'detectado': False,
+                    'mensaje': 'No se pudo leer el archivo CSV. Verifique el encoding.',
+                    'columnas': [],
+                    'flujos_disponibles': {}
+                }), 400
         elif file.filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(file, nrows=5)
         else:
