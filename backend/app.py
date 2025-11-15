@@ -571,7 +571,6 @@ def analizar_archivo():
 def enviar_a_n8n():
     """Envía los datos del archivo al webhook de n8n correspondiente"""
     file = None
-    df = None
     try:
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No se proporcionó archivo'}), 400
@@ -582,26 +581,7 @@ def enviar_a_n8n():
         if not flujo or flujo not in FLUJOS_N8N:
             return jsonify({'success': False, 'error': 'Flujo no válido'}), 400
         
-        # Leer archivo completo
-        if file.filename.endswith('.csv'):
-            df = pd.read_csv(file)
-        elif file.filename.endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(file)
-        else:
-            return jsonify({'success': False, 'error': 'Formato no soportado'}), 400
-        
-        # Validar columnas
         config_flujo = FLUJOS_N8N[flujo]
-        validacion = validar_columnas(df.columns.tolist(), config_flujo)
-        
-        if not validacion['valido']:
-            return jsonify({
-                'success': False,
-                'error': validacion['mensaje']
-            }), 400
-        
-        # Convertir a JSON y enviar a n8n
-        datos = df.to_dict(orient='records')
         webhook_url = config_flujo['webhook_url']
         
         if not webhook_url:
@@ -610,25 +590,28 @@ def enviar_a_n8n():
                 'error': 'Webhook no configurado para este flujo'
             }), 500
         
-        print(f"[INFO] Enviando {len(datos)} registros a {config_flujo['nombre']}")
+        # Resetear puntero del archivo para leerlo completo
+        file.seek(0)
+        file_content = file.read()
+        
+        print(f"[INFO] Enviando archivo {file.filename} ({len(file_content)} bytes) a {config_flujo['nombre']}")
         print(f"[INFO] Webhook: {webhook_url}")
+        
+        # Enviar archivo como multipart/form-data con binary
+        files = {
+            'data': (file.filename, file_content, 'application/octet-stream')
+        }
         
         response = requests.post(
             webhook_url,
-            json={
-                'archivo': file.filename,
-                'registros': len(datos),
-                'usuario': session.get('usuario'),
-                'datos': datos
-            },
+            files=files,
             timeout=300  # 5 minutos timeout
         )
         
         if response.status_code == 200:
             return jsonify({
                 'success': True,
-                'message': f'Datos enviados correctamente a {config_flujo["nombre"]}',
-                'registros_enviados': len(datos),
+                'message': f'Archivo enviado correctamente a {config_flujo["nombre"]}',
                 'flujo': flujo
             })
         else:
@@ -655,12 +638,7 @@ def enviar_a_n8n():
         traceback.print_exc()
         return jsonify({'success': False, 'error': 'Error inesperado al procesar el archivo. Contacte al administrador.'}), 500
     finally:
-        # Limpiar archivo y DataFrame de memoria
-        if df is not None:
-            try:
-                del df
-            except:
-                pass
+        # Limpiar archivo de memoria
         if file:
             try:
                 file.close()
