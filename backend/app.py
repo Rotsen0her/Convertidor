@@ -631,7 +631,7 @@ def enviar_a_n8n():
             webhook_url,
             files=files,
             data=data,
-            timeout=300  # 5 minutos timeout
+            timeout=900  # 15 minutos timeout para archivos grandes
         )
         
         if response.status_code == 200:
