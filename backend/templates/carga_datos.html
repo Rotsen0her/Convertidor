@@ -358,10 +358,21 @@
                 body: formData
             });
 
-            const result = await response.json();
+            // Verificar si la respuesta es JSON válida
+            const contentType = response.headers.get('content-type');
+            let result;
+            
+            if (contentType && contentType.includes('application/json')) {
+                result = await response.json();
+            } else {
+                // Si no es JSON, leer como texto para debugging
+                const text = await response.text();
+                console.error('Respuesta no-JSON del servidor:', text.substring(0, 500));
+                throw new Error('El servidor retornó una respuesta inválida (esperaba JSON)');
+            }
 
             if (response.ok) {
-                showMessage(`✓ ${result.mensaje}. Los datos se están procesando en segundo plano en n8n.`, 'success');
+                showMessage(`✓ ${result.message || result.mensaje}. Los datos se están procesando en segundo plano en n8n.`, 'success');
                 setTimeout(() => {
                     resetUpload();
                 }, 4000);
