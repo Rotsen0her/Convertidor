@@ -557,7 +557,12 @@ def analizar_archivo():
         print(f"[ERROR] Error analizando archivo: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'error': f'Error al analizar: {str(e)}'}), 500
+        return jsonify({
+            'detectado': False,
+            'mensaje': f'Error al analizar: {str(e)}',
+            'columnas': [],
+            'flujos_disponibles': {}
+        }), 500
     finally:
         # Limpiar archivo de memoria
         if file:
