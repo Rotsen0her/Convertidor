@@ -15,9 +15,28 @@ def ejecutar(archivo_acum, archivo_mes, carpeta_salida):
     print("\n🔗 Procesamiento: Unión de Ventas Mensuales con Acumuladas")
     warnings.filterwarnings('ignore')
 
-    try: # Hoy 10/10/2025 Se agrega encoding latin1 debido al nuevo archivo csv de 
-        df_mes = pd.read_csv(archivo_mes, dtype={'Cliente': str, 'Documento': str}, encoding='latin1')
-        df_acum = pd.read_csv(archivo_acum, dtype={'Cliente': str, 'Documento': str}, encoding='latin1')
+    try:
+        # Multi-encoding fallback para archivo mes
+        for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+            try:
+                df_mes = pd.read_csv(archivo_mes, dtype={'Cliente': str, 'Documento': str}, encoding=encoding)
+                print(f"[INFO] Archivo mes leído con encoding: {encoding}")
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+        else:
+            raise ValueError("No se pudo leer archivo_mes con los encodings disponibles.")
+        
+        # Multi-encoding fallback para archivo acumulado
+        for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+            try:
+                df_acum = pd.read_csv(archivo_acum, dtype={'Cliente': str, 'Documento': str}, encoding=encoding)
+                print(f"[INFO] Archivo acum leído con encoding: {encoding}")
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+        else:
+            raise ValueError("No se pudo leer archivo_acum con los encodings disponibles.")
 
         mes_nuevo = extraer_ano_mes(df_mes)
 

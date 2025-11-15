@@ -10,9 +10,17 @@ def ejecutar(archivo_entrada, mes, carpeta_salida):
     try:
         extension = os.path.splitext(archivo_entrada)[1].lower()
 
-        # Lectura
+        # Lectura con multi-encoding fallback
         if extension == ".csv":
-            df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding = 'latin1' , engine="python")
+            for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+                try:
+                    df = pd.read_csv(archivo_entrada, dtype={'Cliente': str, 'Documento': str}, sep=',', encoding=encoding, engine="python")
+                    print(f"[INFO] CSV leído con encoding: {encoding}")
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+            else:
+                raise ValueError("No se pudo leer el archivo CSV con los encodings disponibles.")
         else:
             raise ValueError("Formato no soportado.")
 

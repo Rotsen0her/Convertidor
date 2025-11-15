@@ -14,11 +14,19 @@ def ejecutar(archivo_entrada, carpeta_salida):
         extension = os.path.splitext(archivo_entrada)[1].lower()
         
 
-        # Leer el archivo CSV con encoding adecuado
+        # Leer el archivo CSV con multi-encoding fallback
         if extension != ".csv":
             raise ValueError("Formato no soportado.")
         elif extension == ".csv":
-            df = pd.read_csv(archivo_entrada, sep='|', encoding='utf-8', dtype={'Numero': str,'Cod. Cliente': str})
+            for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+                try:
+                    df = pd.read_csv(archivo_entrada, sep='|', encoding=encoding, dtype={'Numero': str,'Cod. Cliente': str})
+                    print(f"[INFO] CSV leído con encoding: {encoding}")
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+            else:
+                raise ValueError("No se pudo leer el archivo CSV con los encodings disponibles.")
 
         # Correcciones y transformaciones
         df['Numero'] = df['Numero'].astype(str)
