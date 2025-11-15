@@ -597,14 +597,20 @@ def enviar_a_n8n():
         print(f"[INFO] Enviando archivo {file.filename} ({len(file_content)} bytes) a {config_flujo['nombre']}")
         print(f"[INFO] Webhook: {webhook_url}")
         
-        # Enviar archivo como multipart/form-data con binary
+        # Enviar archivo como multipart/form-data con binary + metadata
         files = {
             'data': (file.filename, file_content, 'application/octet-stream')
+        }
+        data = {
+            'archivo': file.filename,
+            'usuario': session.get('usuario'),
+            'tipo_flujo': flujo
         }
         
         response = requests.post(
             webhook_url,
             files=files,
+            data=data,
             timeout=300  # 5 minutos timeout
         )
         
