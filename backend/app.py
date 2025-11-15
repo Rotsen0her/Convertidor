@@ -590,6 +590,7 @@ def analizar_archivo():
 @admin_required
 def enviar_a_n8n():
     """Envía los datos del archivo al webhook de n8n correspondiente"""
+    print(f"[INFO] ===== INICIO enviar-a-n8n =====")
     file = None
     try:
         if 'file' not in request.files:
