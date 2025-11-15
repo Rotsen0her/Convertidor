@@ -634,10 +634,18 @@ def enviar_a_n8n():
             timeout=900  # 15 minutos timeout para archivos grandes
         )
         
+        # Verificar si la respuesta es JSON
+        try:
+            response_data = response.json()
+        except ValueError:
+            # Si no es JSON, probablemente es HTML o texto
+            print(f"[WARNING] Respuesta no-JSON de n8n: {response.text[:200]}")
+            response_data = {}
+        
         if response.status_code == 200:
             return jsonify({
                 'success': True,
-                'message': f'Archivo enviado correctamente a {config_flujo["nombre"]}',
+                'message': f'Archivo enviado correctamente a {config_flujo["nombre"]}. Procesamiento en curso.',
                 'flujo': flujo
             })
         else:
