@@ -9,7 +9,9 @@ x-limits: &default-limits
   deploy:
     resources:
       limits:
-        cpus: '1'
+        cpus: '2'
+        memory: 3G
+      reservations:
         memory: 1G
 
 services:
