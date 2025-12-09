@@ -25,7 +25,7 @@ services:
           memory: 256M
       
   n8n:
-    image: n8nio/n8n:1.118.1
+    image: n8nio/n8n:1.123.4
     restart: unless-stopped
     logging: *default-logging
     depends_on:
