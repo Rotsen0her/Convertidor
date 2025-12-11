@@ -39,13 +39,15 @@ FLUJOS_N8N = {
         'nombre': 'Metas Numéricas por Asesor',
         'descripcion': 'Carga de metas mensuales por asesor y productos específicos',
         'webhook_url': os.environ.get('N8N_WEBHOOK_METAS_NUMERICAS_ASESOR'),
-        'columnas_requeridas': ['Cod. Asesor', 'LV Vegetales', 'Modificadores de Leche', 'Chocolates de Mesa'],
-        'columnas_opcionales': ['Jumbo', 'Cafe Molido', 'Badia', 'Doria', 'Saltin Noel', 'La Especial', 
+        'columnas_requeridas': ['Cod. Asesor'],
+        'columnas_opcionales': ['LV Vegetales', 'Modificadores de Leche', 'Chocolates de Mesa',
+                               'Jumbo', 'Cafe Molido', 'Badia', 'Doria', 'Saltin Noel', 'La Especial', 
                                'Dux', 'Noel', 'Gol', 'Benet', 'Jet', 'Atun', 'LV Carnicos', 
                                'Mezclas Instantaneas', 'Festival', 'Ducales', 'Instantaneo', 
                                'Comarrico', 'Tosh'],
         'tabla_destino': 'metas_numericas_asesor',
-        'icon': 'user-chart'
+        'icon': 'user-chart',
+        'validacion_minima': 12
     }
 }
 
@@ -101,6 +103,22 @@ def validar_columnas(columnas_archivo, flujo_config):
             'mensaje': f"Faltan columnas requeridas: {', '.join(faltantes)}",
             'faltantes': faltantes
         }
+    
+    # Validación especial: verificar que tenga al menos N columnas opcionales
+    if 'validacion_minima' in flujo_config:
+        columnas_opc_lower = [col.lower() for col in flujo_config['columnas_opcionales']]
+        presentes = sum(1 for col_opc in columnas_opc_lower if col_opc in columnas_lower)
+        
+        min_requerido = flujo_config['validacion_minima']
+        total_opcionales = len(flujo_config['columnas_opcionales'])
+        max_faltantes = total_opcionales - min_requerido
+        
+        if presentes < min_requerido:
+            return {
+                'valido': False,
+                'mensaje': f"Se requieren al menos {min_requerido} numéricas (máximo {max_faltantes} pueden faltar). Solo se encontraron {presentes}",
+                'faltantes': []
+            }
     
     return {
         'valido': True,
