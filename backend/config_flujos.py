@@ -34,6 +34,18 @@ FLUJOS_N8N = {
                                'Negocio', 'Ciudad', 'Cod. Asesor', 'Asesor'],
         'tabla_destino': 'ventas_mes_siz',
         'icon': 'currency-dollar'
+    },
+    'metas_numericas_asesor': {
+        'nombre': 'Metas Numéricas por Asesor',
+        'descripcion': 'Carga de metas mensuales por asesor y productos específicos',
+        'webhook_url': os.environ.get('N8N_WEBHOOK_METAS_NUMERICAS_ASESOR'),
+        'columnas_requeridas': ['Cod. Asesor', 'LV Vegetales', 'Modificadores de Leche', 'Chocolates de Mesa'],
+        'columnas_opcionales': ['Jumbo', 'Cafe Molido', 'Badia', 'Doria', 'Saltin Noel', 'La Especial', 
+                               'Dux', 'Noel', 'Gol', 'Benet', 'Jet', 'Atun', 'LV Carnicos', 
+                               'Mezclas Instantaneas', 'Festival', 'Ducales', 'Instantaneo', 
+                               'Comarrico', 'Tosh'],
+        'tabla_destino': 'metas_numericas_asesor',
+        'icon': 'user-chart'
     }
 }
 
