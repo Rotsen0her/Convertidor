@@ -48,6 +48,26 @@ FLUJOS_N8N = {
         'tabla_destino': 'metas_numericas_asesor',
         'icon': 'user-chart',
         'validacion_minima': 12
+    },
+    'indicadores_semanales': {
+        'nombre': 'Indicadores Semanales por Asesor',
+        'descripcion': 'Carga de indicadores y métricas semanales por región, empresa y asesor',
+        'webhook_url': 'https://n8n.luziia.cloud/webhook/5f028c11-6836-4f39-a56f-15136cf2f5f4',
+        'columnas_requeridas': ['Region', 'Empresa', 'Asesor', 'Indicador', 'Prom Sem', 'Prom Acum Mes'],
+        'columnas_opcionales': ['Mes', 'Semana', 'Dias Habiles', 'Dias', 'Lunes', 'Martes', 
+                               'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo', 'Total',
+                               'Ao?=', 'Año', 'Year', 'Ano'],
+        'tabla_destino': 'indicadores_semanales_asesor',
+        'icon': 'calendar-week'
+    },
+    'calendario_laboral': {
+        'nombre': 'Calendario Laboral',
+        'descripcion': 'Carga de calendario con días laborables y festivos',
+        'webhook_url': 'https://n8n.luziia.cloud/webhook/calendario-laboralfec-6780-43a8-aadd-a024cfb68002',
+        'columnas_requeridas': ['Fecha', 'Dia_Semana', 'Es_Laboral'],
+        'columnas_opcionales': ['Año', 'Ano', 'Year', 'Mes', 'Observacion'],
+        'tabla_destino': 'calendario_laboral',
+        'icon': 'calendar'
     }
 }
 
